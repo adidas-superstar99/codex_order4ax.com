@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import {
   createOrderBatch,
   deleteOrderBatch,
@@ -11,11 +12,11 @@ import {
 export const publicOrderBatchesRouter = Router();
 export const adminOrderBatchesRouter = Router();
 
-publicOrderBatchesRouter.get("/", async (_req, res) => {
+publicOrderBatchesRouter.get("/", async (_req: Request, res: Response) => {
   res.json(await listPublicOrderBatches());
 });
 
-publicOrderBatchesRouter.get("/:id", async (req, res) => {
+publicOrderBatchesRouter.get("/:id", async (req: Request, res: Response) => {
   const batch = await getOrderBatchById(req.params.id);
   if (!batch) {
     res.status(404).json({ message: "BATCH_NOT_FOUND" });
@@ -25,11 +26,11 @@ publicOrderBatchesRouter.get("/:id", async (req, res) => {
   res.json(batch);
 });
 
-adminOrderBatchesRouter.get("/", async (_req, res) => {
+adminOrderBatchesRouter.get("/", async (_req: Request, res: Response) => {
   res.json(await listAdminOrderBatches());
 });
 
-adminOrderBatchesRouter.post("/", async (req, res) => {
+adminOrderBatchesRouter.post("/", async (req: Request, res: Response) => {
   try {
     const batch = await createOrderBatch(req.body);
     res.status(201).json(batch);
@@ -39,7 +40,7 @@ adminOrderBatchesRouter.post("/", async (req, res) => {
   }
 });
 
-adminOrderBatchesRouter.patch("/:id", async (req, res) => {
+adminOrderBatchesRouter.patch("/:id", async (req: Request, res: Response) => {
   try {
     const batch = await updateOrderBatch(req.params.id, req.body);
     if (!batch) {
@@ -54,7 +55,7 @@ adminOrderBatchesRouter.patch("/:id", async (req, res) => {
   }
 });
 
-adminOrderBatchesRouter.delete("/:id", async (req, res) => {
+adminOrderBatchesRouter.delete("/:id", async (req: Request, res: Response) => {
   const deleted = await deleteOrderBatch(req.params.id);
   if (!deleted) {
     res.status(404).json({ message: "BATCH_NOT_FOUND" });

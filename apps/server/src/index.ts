@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import type { Request, Response } from "express";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,7 +24,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ ok: true, service: "coffee-order-api" });
 });
 
@@ -36,7 +37,7 @@ app.use("/api/admin", adminRouter);
 
 if (webDistPath) {
   app.use(express.static(webDistPath));
-  app.get(/^(?!\/api).*/, (_req, res) => {
+  app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
     res.sendFile(join(webDistPath, "index.html"));
   });
 }
