@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import { ordersToCsv } from "../services/exportService.js";
 import {
   bulkUpdateOrderStatus,
@@ -107,7 +108,7 @@ ordersRouter.delete("/:id", async (req, res) => {
   }
 });
 
-ordersRouter.post("/bulk-status", async (req, res) => {
+ordersRouter.post("/bulk-status", async (req: Request, res: Response) => {
   try {
     const status = String(req.body.status ?? "");
     if (!isOrderStatus(status)) {

@@ -300,20 +300,27 @@ export async function listPopularMenus(filters: { batchId?: string; date?: strin
     date: filters.date ?? getCurrentKoreanDate(),
     brand: filters.brand
   });
-  const groups = new Map<string, { menuId: string; menuName: string; category: string; quantity: number; ordererNames: string[] }>();
+  type PopularMenuGroup = {
+    menuId: string;
+    menuName: string;
+    category: string;
+    quantity: number;
+    ordererNames: string[];
+  };
+  const groups = new Map<string, PopularMenuGroup>();
 
   for (const order of orders) {
     if (order.status === "cancelled") continue;
 
     for (const item of order.items) {
       const key = item.menuId;
-        const group = groups.get(key) ?? {
-          menuId: item.menuId,
-          menuName: item.menuName,
-          category: item.category,
-          quantity: 0,
-          ordererNames: []
-        };
+      const group: PopularMenuGroup = groups.get(key) ?? {
+        menuId: item.menuId,
+        menuName: item.menuName,
+        category: item.category,
+        quantity: 0,
+        ordererNames: []
+      };
       group.quantity += item.quantity;
       if (!group.ordererNames.includes(order.ordererName)) {
         group.ordererNames.push(order.ordererName);
