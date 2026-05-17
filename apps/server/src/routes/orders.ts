@@ -16,7 +16,7 @@ import type { Brand } from "../types.js";
 export const publicOrdersRouter = Router();
 export const ordersRouter = Router();
 
-publicOrdersRouter.post("/", async (req, res) => {
+publicOrdersRouter.post("/", async (req: Request, res: Response) => {
   try {
     const order = await createOrder(req.body);
     res.status(201).json(order);
@@ -26,7 +26,7 @@ publicOrdersRouter.post("/", async (req, res) => {
   }
 });
 
-publicOrdersRouter.get("/popular", async (req, res) => {
+publicOrdersRouter.get("/popular", async (req: Request, res: Response) => {
   try {
     const batchId = typeof req.query.batchId === "string" ? req.query.batchId : undefined;
     const brand = typeof req.query.brand === "string" ? (req.query.brand as Brand) : undefined;
@@ -39,7 +39,7 @@ publicOrdersRouter.get("/popular", async (req, res) => {
   }
 });
 
-ordersRouter.get("/", async (req, res) => {
+ordersRouter.get("/", async (req: Request, res: Response) => {
   try {
     const filters = readFilters(req.query);
     res.json(await listOrders(filters));
@@ -49,7 +49,7 @@ ordersRouter.get("/", async (req, res) => {
   }
 });
 
-ordersRouter.get("/summary", async (req, res) => {
+ordersRouter.get("/summary", async (req: Request, res: Response) => {
   try {
     const filters = readFilters(req.query);
     res.json(await summarizeOrders(filters));
@@ -59,7 +59,7 @@ ordersRouter.get("/summary", async (req, res) => {
   }
 });
 
-ordersRouter.get("/export.csv", async (req, res) => {
+ordersRouter.get("/export.csv", async (req: Request, res: Response) => {
   try {
     const filters = readFilters(req.query);
     const csv = ordersToCsv(await listOrders(filters));
@@ -72,7 +72,7 @@ ordersRouter.get("/export.csv", async (req, res) => {
   }
 });
 
-ordersRouter.patch("/:id/status", async (req, res) => {
+ordersRouter.patch("/:id/status", async (req: Request, res: Response) => {
   try {
     const status = String(req.body.status ?? "");
     if (!isOrderStatus(status)) {
@@ -93,7 +93,7 @@ ordersRouter.patch("/:id/status", async (req, res) => {
   }
 });
 
-ordersRouter.delete("/:id", async (req, res) => {
+ordersRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
     const deleted = await deleteOrder(req.params.id);
     if (!deleted) {

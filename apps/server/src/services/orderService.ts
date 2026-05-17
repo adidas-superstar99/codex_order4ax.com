@@ -148,7 +148,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return (await getOrderById(orderId))!;
 }
 
-export async function listOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus }) {
+export async function listOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus }): Promise<Order[]> {
   const clauses: string[] = [];
   const values: unknown[] = [];
 
