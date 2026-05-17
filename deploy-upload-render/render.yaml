@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: coffee-order-app
+    runtime: node
+    plan: free
+    rootDir: deploy-upload-render
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        sync: false
