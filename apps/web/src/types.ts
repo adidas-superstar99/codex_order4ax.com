@@ -44,3 +44,10 @@ export type SummaryRow = {
   quantity: number;
   requests: Array<{ ordererName: string; customRequest: string }>;
 };
+
+export type PopularMenuRow = {
+  menuId: string;
+  menuName: string;
+  category: string;
+  quantity: number;
+};

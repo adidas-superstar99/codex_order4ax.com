@@ -214,11 +214,73 @@ export async function summarizeOrders(filters: { date?: string; brand?: Brand; s
   );
 }
 
+export async function bulkUpdateOrderStatus(
+  filters: { date?: string; brand?: Brand; status?: OrderStatus },
+  nextStatus: OrderStatus
+) {
+  const orders = await listOrders(filters);
+  const targetOrders = orders.filter((order) => order.status !== "cancelled" && order.status !== nextStatus);
+
+  if (!targetOrders.length) {
+    return { updatedCount: 0 };
+  }
+
+  if (isPostgres()) {
+    for (const order of targetOrders) {
+      await pgOne<{ id: string }>("UPDATE orders SET status = $1 WHERE id = $2 RETURNING id", [nextStatus, order.id]);
+    }
+    return { updatedCount: targetOrders.length };
+  }
+
+  const statement = sqliteDb!.prepare("UPDATE orders SET status = ? WHERE id = ?");
+  const transaction = sqliteDb!.transaction(() => {
+    for (const order of targetOrders) {
+      statement.run(nextStatus, order.id);
+    }
+  });
+  transaction();
+  return { updatedCount: targetOrders.length };
+}
+
+export async function listPopularMenus(filters: { date?: string; brand?: Brand; limit?: number }) {
+  const orders = await listOrders({ date: filters.date ?? getCurrentKoreanDate(), brand: filters.brand });
+  const groups = new Map<string, { menuId: string; menuName: string; category: string; quantity: number }>();
+
+  for (const order of orders) {
+    if (order.status === "cancelled") continue;
+
+    for (const item of order.items) {
+      const key = item.menuId;
+      const group = groups.get(key) ?? {
+        menuId: item.menuId,
+        menuName: item.menuName,
+        category: item.category,
+        quantity: 0
+      };
+      group.quantity += item.quantity;
+      groups.set(key, group);
+    }
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => b.quantity - a.quantity || a.menuName.localeCompare(b.menuName))
+    .slice(0, filters.limit ?? 3);
+}
+
 function getKoreanDateRange(date: string) {
   const start = new Date(`${date}T00:00:00+09:00`);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function getCurrentKoreanDate() {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
 }
 
 async function mapOrderRowAsync(row: OrderRow): Promise<Order> {

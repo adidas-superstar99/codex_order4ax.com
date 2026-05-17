@@ -1,22 +1,47 @@
-import { Download, RefreshCcw } from "lucide-react";
+import { CheckCheck, Download, ReceiptText, RefreshCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { adminHeaders, exportCsvUrl, fetchAdminOrders, fetchSummary, updateStatus } from "../api";
+import { adminHeaders, bulkUpdateStatus, exportCsvUrl, fetchAdminOrders, fetchSummary, updateStatus } from "../api";
 import { OrderSummaryTable } from "../components/OrderSummaryTable";
 import type { Brand, Order, OrderStatus, SummaryRow } from "../types";
 
 const statuses: Array<OrderStatus | "ALL"> = ["ALL", "submitted", "confirmed", "ordered", "completed", "cancelled"];
 const brands: Array<Brand | "ALL"> = ["ALL", "STARBUCKS", "TWOSOME"];
 
+const statusLabels: Record<OrderStatus | "ALL", string> = {
+  ALL: "전체 상태",
+  submitted: "주문 접수",
+  confirmed: "주문 확정",
+  ordered: "매장 주문 완료",
+  completed: "수령 완료",
+  cancelled: "취소"
+};
+
+const brandLabels: Record<Brand | "ALL", string> = {
+  ALL: "전체 브랜드",
+  STARBUCKS: "스타벅스",
+  TWOSOME: "투썸플레이스"
+};
+
+function getTodayInSeoul() {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+}
+
 export function AdminPage() {
   const [password, setPassword] = useState(() => window.localStorage.getItem("adminPassword") ?? "");
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => getTodayInSeoul());
   const [brand, setBrand] = useState<Brand | "ALL">("ALL");
   const [status, setStatus] = useState<OrderStatus | "ALL">("ALL");
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [message, setMessage] = useState("");
+  const [isApplyingBulkAction, setIsApplyingBulkAction] = useState(false);
 
   useEffect(() => {
     if (isUnlocked) void load();
@@ -45,8 +70,29 @@ export function AdminPage() {
     try {
       await updateStatus(password, orderId, nextStatus);
       await load();
+      setMessage(`주문 상태를 ${statusLabels[nextStatus]}로 변경했습니다.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "상태 변경에 실패했습니다.");
+    }
+  }
+
+  async function applyBulkStatus(nextStatus: OrderStatus) {
+    setIsApplyingBulkAction(true);
+    try {
+      const result = await bulkUpdateStatus(password, {
+        status: nextStatus,
+        filters: { date, brand, status }
+      });
+      await load();
+      setMessage(
+        result.updatedCount
+          ? `${result.updatedCount}건을 ${statusLabels[nextStatus]} 상태로 일괄 변경했습니다.`
+          : "변경할 주문이 없어 상태를 그대로 유지했습니다."
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "일괄 상태 변경에 실패했습니다.");
+    } finally {
+      setIsApplyingBulkAction(false);
     }
   }
 
@@ -89,21 +135,21 @@ export function AdminPage() {
         <div>
           <p className="eyebrow">Admin dashboard</p>
           <h1>주문 취합 현황</h1>
-          <p>날짜, 브랜드, 상태 기준으로 주문과 집계를 확인합니다.</p>
+          <p>오늘 주문을 확정하고, 실제 매장 주문과 수령 완료 시점을 운영자가 직접 표시하는 흐름으로 정리했습니다.</p>
         </div>
         <a className="admin-link" href="/">주문 화면</a>
       </section>
 
       <section className="admin-toolbar">
         <label className="field compact">
-          <span>날짜</span>
+          <span>주문 일자</span>
           <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
         </label>
         <label className="field compact">
           <span>브랜드</span>
           <select value={brand} onChange={(event) => setBrand(event.target.value as Brand | "ALL")}>
             {brands.map((item) => (
-              <option key={item} value={item}>{item === "ALL" ? "전체" : item}</option>
+              <option key={item} value={item}>{brandLabels[item]}</option>
             ))}
           </select>
         </label>
@@ -111,7 +157,7 @@ export function AdminPage() {
           <span>상태</span>
           <select value={status} onChange={(event) => setStatus(event.target.value as OrderStatus | "ALL")}>
             {statuses.map((item) => (
-              <option key={item} value={item}>{item === "ALL" ? "전체" : item}</option>
+              <option key={item} value={item}>{statusLabels[item]}</option>
             ))}
           </select>
         </label>
@@ -122,6 +168,21 @@ export function AdminPage() {
         <button className="secondary-button" type="button" onClick={downloadCsv}>
           <Download size={17} />
           CSV
+        </button>
+      </section>
+
+      <section className="bulk-action-bar">
+        <button className="secondary-button" type="button" disabled={isApplyingBulkAction} onClick={() => applyBulkStatus("confirmed")}>
+          <CheckCheck size={16} />
+          전체 주문 확정
+        </button>
+        <button className="secondary-button" type="button" disabled={isApplyingBulkAction} onClick={() => applyBulkStatus("ordered")}>
+          <ReceiptText size={16} />
+          전체 매장 주문 완료
+        </button>
+        <button className="secondary-button" type="button" disabled={isApplyingBulkAction} onClick={() => applyBulkStatus("completed")}>
+          <CheckCheck size={16} />
+          전체 수령 완료
         </button>
       </section>
 
@@ -145,7 +206,7 @@ export function AdminPage() {
                   </div>
                   <select value={order.status} onChange={(event) => changeStatus(order.id, event.target.value as OrderStatus)}>
                     {statuses.filter((item) => item !== "ALL").map((item) => (
-                      <option key={item} value={item}>{item}</option>
+                      <option key={item} value={item}>{statusLabels[item]}</option>
                     ))}
                   </select>
                 </header>
@@ -157,7 +218,7 @@ export function AdminPage() {
                 <ul>
                   {order.items.map((item) => (
                     <li key={item.id}>
-                      {item.brand} · {item.menuName} · {item.size} · {item.quantity}잔
+                      {brandLabels[item.brand]} · {item.menuName} · {item.size} · {item.quantity}잔
                       {item.customRequest ? <em>{item.customRequest}</em> : null}
                     </li>
                   ))}

@@ -1,6 +1,14 @@
 import { Router } from "express";
 import { ordersToCsv } from "../services/exportService.js";
-import { createOrder, isOrderStatus, listOrders, summarizeOrders, updateOrderStatus } from "../services/orderService.js";
+import {
+  bulkUpdateOrderStatus,
+  createOrder,
+  isOrderStatus,
+  listOrders,
+  listPopularMenus,
+  summarizeOrders,
+  updateOrderStatus
+} from "../services/orderService.js";
 import type { Brand } from "../types.js";
 
 export const publicOrdersRouter = Router();
@@ -13,6 +21,18 @@ publicOrdersRouter.post("/", async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(400).json({ message });
+  }
+});
+
+publicOrdersRouter.get("/popular", async (req, res) => {
+  try {
+    const brand = typeof req.query.brand === "string" ? (req.query.brand as Brand) : undefined;
+    const date = typeof req.query.date === "string" ? req.query.date : undefined;
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    res.json(await listPopularMenus({ brand, date, limit: Number.isFinite(limit) ? limit : undefined }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(500).json({ message });
   }
 });
 
@@ -64,6 +84,22 @@ ordersRouter.patch("/:id/status", async (req, res) => {
     }
 
     res.json(order);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(500).json({ message });
+  }
+});
+
+ordersRouter.post("/bulk-status", async (req, res) => {
+  try {
+    const status = String(req.body.status ?? "");
+    if (!isOrderStatus(status)) {
+      res.status(400).json({ message: "INVALID_STATUS" });
+      return;
+    }
+
+    const filters = readFilters(req.body.filters ?? {});
+    res.json(await bulkUpdateOrderStatus(filters, status));
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(500).json({ message });

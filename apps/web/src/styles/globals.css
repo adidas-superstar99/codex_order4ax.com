@@ -521,6 +521,12 @@ textarea {
   gap: 14px;
 }
 
+.featured-strip-hint {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .featured-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -845,6 +851,13 @@ textarea {
   min-height: 100vh;
   place-items: center;
   padding: 24px;
+}
+
+.bulk-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .order-header {

@@ -1,7 +1,12 @@
 import type { SummaryRow } from "../types";
 
+const brandLabels: Record<SummaryRow["brand"], string> = {
+  STARBUCKS: "스타벅스",
+  TWOSOME: "투썸플레이스"
+};
+
 export function OrderSummaryTable({ rows }: { rows: SummaryRow[] }) {
-  if (!rows.length) return <div className="empty-state">집계할 주문이 없습니다.</div>;
+  if (!rows.length) return <div className="empty-state">집계할 주문이 아직 없습니다.</div>;
 
   return (
     <div className="table-wrap">
@@ -19,7 +24,7 @@ export function OrderSummaryTable({ rows }: { rows: SummaryRow[] }) {
         <tbody>
           {rows.map((row) => (
             <tr key={`${row.brand}-${row.category}-${row.menuName}-${row.size}`}>
-              <td>{row.brand}</td>
+              <td>{brandLabels[row.brand]}</td>
               <td>{row.category}</td>
               <td>{row.menuName}</td>
               <td>{row.size}</td>

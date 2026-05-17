@@ -1,13 +1,13 @@
-﻿import { ArrowRight, Clock3, Search, ShieldCheck, ShoppingBag, Sparkles, Users, X } from "lucide-react";
+import { ArrowRight, Clock3, Search, ShieldCheck, ShoppingBag, Sparkles, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { createOrder, fetchMenus } from "../api";
+import { createOrder, fetchMenus, fetchPopularMenus } from "../api";
 import { BrandTabs } from "../components/BrandTabs";
 import { CustomRequestInput } from "../components/CustomRequestInput";
 import { MenuGrid } from "../components/MenuGrid";
 import { OrderCart } from "../components/OrderCart";
 import { SizeSelector } from "../components/SizeSelector";
-import type { Brand, CartItem, Menu } from "../types";
+import type { Brand, CartItem, Menu, PopularMenuRow } from "../types";
 
 const brandHighlights: Record<Brand, { eyebrow: string; title: string; description: string }> = {
   STARBUCKS: {
@@ -27,11 +27,12 @@ const brandNames: Record<Brand, string> = {
   TWOSOME: "투썸플레이스"
 };
 
-const statusSteps = ["주문 작성", "공동 취합", "매장 주문", "수령 완료"];
+const statusSteps = ["주문 작성", "주문 확정", "매장 주문 완료", "수령 완료"];
 
 export function OrderPage() {
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [popularRows, setPopularRows] = useState<PopularMenuRow[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ALL");
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
@@ -47,6 +48,10 @@ export function OrderPage() {
     fetchMenus({ brand })
       .then(setMenus)
       .catch((error) => setStatusMessage(error.message));
+
+    fetchPopularMenus({ brand, limit: 3 })
+      .then(setPopularRows)
+      .catch(() => setPopularRows([]));
   }, [brand]);
 
   const categories = useMemo(() => ["ALL", ...new Set(menus.map((menu) => menu.category))], [menus]);
@@ -58,7 +63,24 @@ export function OrderPage() {
       return true;
     });
   }, [category, menus, query]);
-  const featuredMenus = useMemo(() => menus.filter((menu) => menu.isNew || menu.isSeasonal).slice(0, 3), [menus]);
+
+  const fallbackMenus = useMemo(() => menus.filter((menu) => menu.isNew || menu.isSeasonal).slice(0, 3), [menus]);
+  const popularMenus = useMemo(() => {
+    if (!popularRows.length) return [];
+
+    return popularRows
+      .map((row) => {
+        const menu = menus.find((item) => item.id === row.menuId)
+          ?? menus.find((item) => item.name === row.menuName && item.category === row.category);
+        if (!menu) return null;
+        return { ...menu, orderedQuantity: row.quantity };
+      })
+      .filter((menu): menu is Menu & { orderedQuantity: number } => Boolean(menu));
+  }, [menus, popularRows]);
+
+  const spotlightMenus = popularMenus.length ? popularMenus : fallbackMenus;
+  const spotlightTitle = popularMenus.length ? "이번 주문 인기 메뉴" : "신메뉴 · 시즌 메뉴";
+  const spotlightHint = popularMenus.length ? "오늘 주문에서 많이 담긴 메뉴" : "아직 주문 데이터가 적어 신메뉴를 먼저 보여드려요.";
   const totalCartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const topCategories = useMemo(() => categories.filter((item) => item !== "ALL").slice(0, 4), [categories]);
   const heroCopy = brandHighlights[brand];
@@ -108,6 +130,9 @@ export function OrderPage() {
       setCart([]);
       setForm({ ordererName: "", team: "", contact: "", memo: "" });
       setStatusMessage("주문이 정상적으로 접수됐습니다.");
+      fetchPopularMenus({ brand, limit: 3 })
+        .then(setPopularRows)
+        .catch(() => undefined);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "주문 처리 중 문제가 발생했습니다.");
     } finally {
@@ -139,8 +164,8 @@ export function OrderPage() {
           <div className="hero-stats-grid">
             <div className="stat-card glow-card">
               <Sparkles size={18} />
-              <strong>{featuredMenus.length || 3}</strong>
-              <span>추천 메뉴</span>
+              <strong>{spotlightMenus.length}</strong>
+              <span>{popularMenus.length ? "이번 주문 인기" : "신메뉴 · 시즌 메뉴"}</span>
             </div>
             <div className="stat-card">
               <Search size={18} />
@@ -206,21 +231,25 @@ export function OrderPage() {
             ))}
           </div>
 
-          {featuredMenus.length ? (
+          {spotlightMenus.length ? (
             <section className="featured-strip">
               <div className="section-heading-row compact">
                 <div>
                   <p className="section-kicker">Quick picks</p>
-                  <h3>지금 눈에 띄는 메뉴</h3>
+                  <h3>{spotlightTitle}</h3>
+                  <p className="featured-strip-hint">{spotlightHint}</p>
                 </div>
               </div>
               <div className="featured-grid">
-                {featuredMenus.map((menu) => (
+                {spotlightMenus.map((menu) => (
                   <button className="featured-card" key={menu.id} type="button" onClick={() => openMenu(menu)}>
                     <img src={menu.imageUrl} alt="" loading="lazy" />
                     <div>
                       <strong>{menu.name}</strong>
-                      <span>{menu.category}</span>
+                      <span>
+                        {menu.category}
+                        {"orderedQuantity" in menu ? ` · ${menu.orderedQuantity}잔` : ""}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -294,7 +323,15 @@ export function OrderPage() {
                   <span className={index === 0 ? "status-step-bullet active" : "status-step-bullet"} />
                   <div>
                     <strong>{step}</strong>
-                    <p>{index === 0 ? "메뉴와 옵션을 담은 뒤 바로 제출할 수 있어요." : "관리 단계에서 순서대로 상태가 업데이트됩니다."}</p>
+                    <p>
+                      {index === 0
+                        ? "메뉴와 옵션을 담고 제출하면 접수됩니다."
+                        : index === 1
+                          ? "관리자가 취합을 마치면 주문 확정으로 표시됩니다."
+                          : index === 2
+                            ? "실제 스벅·투썸 주문이 끝나면 관리자 화면에서 표시됩니다."
+                            : "음료를 받은 뒤 수령 완료로 정리됩니다."}
+                    </p>
                   </div>
                 </div>
               ))}

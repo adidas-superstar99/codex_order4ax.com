@@ -1,4 +1,4 @@
-import type { Brand, CartItem, Order, OrderStatus, SummaryRow } from "./types";
+import type { Brand, CartItem, Order, OrderStatus, PopularMenuRow, SummaryRow } from "./types";
 
 export async function fetchMenus(params: { brand?: Brand; category?: string; query?: string }) {
   const url = new URL("/api/menus", window.location.origin);
@@ -24,11 +24,25 @@ export async function createOrder(payload: {
     body: JSON.stringify(payload)
   });
 
-  if (!response.ok) throw new Error("주문 저장에 실패했습니다.");
+  if (!response.ok) throw new Error("주문 처리에 실패했습니다.");
   return response.json() as Promise<Order>;
 }
 
-export async function fetchAdminOrders(password: string, params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
+export async function fetchPopularMenus(params: { brand?: Brand; date?: string; limit?: number }) {
+  const url = new URL("/api/orders/popular", window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
+  });
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("인기 메뉴를 불러오지 못했습니다.");
+  return response.json() as Promise<PopularMenuRow[]>;
+}
+
+export async function fetchAdminOrders(
+  password: string,
+  params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
+) {
   const url = new URL("/api/orders", window.location.origin);
   appendAdminParams(url, params);
   const response = await fetch(url, { headers: adminHeaders(password) });
@@ -36,7 +50,10 @@ export async function fetchAdminOrders(password: string, params: { date?: string
   return response.json() as Promise<Order[]>;
 }
 
-export async function fetchSummary(password: string, params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
+export async function fetchSummary(
+  password: string,
+  params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
+) {
   const url = new URL("/api/orders/summary", window.location.origin);
   appendAdminParams(url, params);
   const response = await fetch(url, { headers: adminHeaders(password) });
@@ -53,6 +70,20 @@ export async function updateStatus(password: string, orderId: string, status: Or
 
   if (!response.ok) throw new Error("상태 변경에 실패했습니다.");
   return response.json() as Promise<Order>;
+}
+
+export async function bulkUpdateStatus(
+  password: string,
+  payload: { status: OrderStatus; filters: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" } }
+) {
+  const response = await fetch("/api/orders/bulk-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) throw new Error("일괄 상태 변경에 실패했습니다.");
+  return response.json() as Promise<{ updatedCount: number }>;
 }
 
 export function exportCsvUrl(params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
