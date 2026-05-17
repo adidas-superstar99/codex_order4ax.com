@@ -1,4 +1,4 @@
-import type { Brand, CartItem, Order, OrderStatus, PopularMenuRow, SummaryRow } from "./types";
+import type { Brand, CartItem, Order, OrderBatch, OrderBatchStatus, OrderStatus, PopularMenuRow, SummaryRow } from "./types";
 
 export async function fetchMenus(params: { brand?: Brand; category?: string; query?: string }) {
   const url = new URL("/api/menus", window.location.origin);
@@ -11,7 +11,20 @@ export async function fetchMenus(params: { brand?: Brand; category?: string; que
   return response.json();
 }
 
+export async function fetchPublicOrderBatches() {
+  const response = await fetch("/api/order-batches");
+  if (!response.ok) throw new Error("주문 목록을 불러오지 못했습니다.");
+  return response.json() as Promise<OrderBatch[]>;
+}
+
+export async function fetchOrderBatch(batchId: string) {
+  const response = await fetch(`/api/order-batches/${batchId}`);
+  if (!response.ok) throw new Error("주문 목록을 찾을 수 없습니다.");
+  return response.json() as Promise<OrderBatch>;
+}
+
 export async function createOrder(payload: {
+  batchId: string;
   ordererName: string;
   team?: string;
   contact?: string;
@@ -24,11 +37,15 @@ export async function createOrder(payload: {
     body: JSON.stringify(payload)
   });
 
-  if (!response.ok) throw new Error("주문 처리에 실패했습니다.");
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "주문 처리에 실패했습니다." }));
+    throw new Error(error.message ?? "주문 처리에 실패했습니다.");
+  }
+
   return response.json() as Promise<Order>;
 }
 
-export async function fetchPopularMenus(params: { brand?: Brand; date?: string; limit?: number }) {
+export async function fetchPopularMenus(params: { batchId?: string; brand?: Brand; date?: string; limit?: number }) {
   const url = new URL("/api/orders/popular", window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
@@ -39,20 +56,63 @@ export async function fetchPopularMenus(params: { brand?: Brand; date?: string; 
   return response.json() as Promise<PopularMenuRow[]>;
 }
 
+export async function fetchAdminOrderBatches(password: string) {
+  const response = await fetch("/api/admin/order-batches", { headers: adminHeaders(password) });
+  if (!response.ok) throw new Error("관리자 주문 목록을 불러오지 못했습니다.");
+  return response.json() as Promise<OrderBatch[]>;
+}
+
+export async function createOrderBatch(
+  password: string,
+  payload: { title: string; memo?: string; department?: string }
+) {
+  const response = await fetch("/api/admin/order-batches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "주문 목록 생성에 실패했습니다." }));
+    throw new Error(error.message ?? "주문 목록 생성에 실패했습니다.");
+  }
+
+  return response.json() as Promise<OrderBatch>;
+}
+
+export async function updateOrderBatch(
+  password: string,
+  batchId: string,
+  payload: { title?: string; memo?: string; department?: string; status?: OrderBatchStatus }
+) {
+  const response = await fetch(`/api/admin/order-batches/${batchId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "주문 목록 수정에 실패했습니다." }));
+    throw new Error(error.message ?? "주문 목록 수정에 실패했습니다.");
+  }
+
+  return response.json() as Promise<OrderBatch>;
+}
+
 export async function fetchAdminOrders(
   password: string,
-  params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
+  params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
 ) {
   const url = new URL("/api/orders", window.location.origin);
   appendAdminParams(url, params);
   const response = await fetch(url, { headers: adminHeaders(password) });
-  if (!response.ok) throw new Error("관리자 인증 또는 주문 조회에 실패했습니다.");
+  if (!response.ok) throw new Error("관리자 주문 조회에 실패했습니다.");
   return response.json() as Promise<Order[]>;
 }
 
 export async function fetchSummary(
   password: string,
-  params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
+  params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
 ) {
   const url = new URL("/api/orders/summary", window.location.origin);
   appendAdminParams(url, params);
@@ -72,9 +132,22 @@ export async function updateStatus(password: string, orderId: string, status: Or
   return response.json() as Promise<Order>;
 }
 
+export async function deleteAdminOrder(password: string, orderId: string) {
+  const response = await fetch(`/api/orders/${orderId}`, {
+    method: "DELETE",
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) throw new Error("주문 삭제에 실패했습니다.");
+  return response.json() as Promise<{ ok: true }>;
+}
+
 export async function bulkUpdateStatus(
   password: string,
-  payload: { status: OrderStatus; filters: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" } }
+  payload: {
+    status: OrderStatus;
+    filters: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" };
+  }
 ) {
   const response = await fetch("/api/orders/bulk-status", {
     method: "POST",
@@ -86,7 +159,7 @@ export async function bulkUpdateStatus(
   return response.json() as Promise<{ updatedCount: number }>;
 }
 
-export function exportCsvUrl(params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
+export function exportCsvUrl(params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
   const url = new URL("/api/orders/export.csv", window.location.origin);
   appendAdminParams(url, params);
   return url.pathname + url.search;
@@ -96,7 +169,11 @@ export function adminHeaders(password: string) {
   return { "x-admin-password": password };
 }
 
-function appendAdminParams(url: URL, params: { date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {
+function appendAdminParams(
+  url: URL,
+  params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }
+) {
+  if (params.batchId) url.searchParams.set("batchId", params.batchId);
   if (params.date) url.searchParams.set("date", params.date);
   if (params.brand && params.brand !== "ALL") url.searchParams.set("brand", params.brand);
   if (params.status && params.status !== "ALL") url.searchParams.set("status", params.status);

@@ -6,7 +6,7 @@ dotenv.config();
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? resolve(process.cwd(), "coffee-orders.sqlite"),
-  adminPassword: process.env.ADMIN_PASSWORD ?? "change-me",
+  adminPassword: process.env.ADMIN_PASSWORD ?? "1234",
   nodeEnv: process.env.NODE_ENV ?? "development"
 };
 

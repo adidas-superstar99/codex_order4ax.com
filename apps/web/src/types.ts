@@ -1,5 +1,17 @@
 export type Brand = "STARBUCKS" | "TWOSOME";
 
+export type OrderBatchStatus = "open" | "closed";
+
+export type OrderBatch = {
+  id: string;
+  title: string;
+  memo?: string;
+  department: string;
+  status: OrderBatchStatus;
+  createdAt: string;
+  closedAt?: string;
+};
+
 export type Menu = {
   id: string;
   brand: Brand;
@@ -27,6 +39,7 @@ export type CartItem = {
 
 export type Order = {
   id: string;
+  batchId?: string;
   orderedAt: string;
   ordererName: string;
   team?: string;
@@ -50,4 +63,5 @@ export type PopularMenuRow = {
   menuName: string;
   category: string;
   quantity: number;
+  ordererNames: string[];
 };

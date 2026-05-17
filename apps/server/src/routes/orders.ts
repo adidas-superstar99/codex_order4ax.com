@@ -3,6 +3,7 @@ import { ordersToCsv } from "../services/exportService.js";
 import {
   bulkUpdateOrderStatus,
   createOrder,
+  deleteOrder,
   isOrderStatus,
   listOrders,
   listPopularMenus,
@@ -26,10 +27,11 @@ publicOrdersRouter.post("/", async (req, res) => {
 
 publicOrdersRouter.get("/popular", async (req, res) => {
   try {
+    const batchId = typeof req.query.batchId === "string" ? req.query.batchId : undefined;
     const brand = typeof req.query.brand === "string" ? (req.query.brand as Brand) : undefined;
     const date = typeof req.query.date === "string" ? req.query.date : undefined;
     const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
-    res.json(await listPopularMenus({ brand, date, limit: Number.isFinite(limit) ? limit : undefined }));
+    res.json(await listPopularMenus({ batchId, brand, date, limit: Number.isFinite(limit) ? limit : undefined }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(500).json({ message });
@@ -90,6 +92,21 @@ ordersRouter.patch("/:id/status", async (req, res) => {
   }
 });
 
+ordersRouter.delete("/:id", async (req, res) => {
+  try {
+    const deleted = await deleteOrder(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ message: "ORDER_NOT_FOUND" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(500).json({ message });
+  }
+});
+
 ordersRouter.post("/bulk-status", async (req, res) => {
   try {
     const status = String(req.body.status ?? "");
@@ -109,6 +126,7 @@ ordersRouter.post("/bulk-status", async (req, res) => {
 function readFilters(query: Record<string, unknown>) {
   const status = typeof query.status === "string" && isOrderStatus(query.status) ? query.status : undefined;
   return {
+    batchId: typeof query.batchId === "string" ? query.batchId : undefined,
     date: typeof query.date === "string" ? query.date : undefined,
     brand: typeof query.brand === "string" ? (query.brand as Brand) : undefined,
     status

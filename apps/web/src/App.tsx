@@ -1,8 +1,17 @@
 import { AdminPage } from "./pages/AdminPage";
+import { OrderListPage } from "./pages/OrderListPage";
 import { OrderPage } from "./pages/OrderPage";
 
 export function App() {
   const path = window.location.pathname;
 
-  return path.startsWith("/admin") ? <AdminPage /> : <OrderPage />;
+  if (path.startsWith("/admin")) {
+    return <AdminPage />;
+  }
+
+  if (path.startsWith("/order/")) {
+    return <OrderPage batchId={path.replace("/order/", "")} />;
+  }
+
+  return <OrderListPage />;
 }

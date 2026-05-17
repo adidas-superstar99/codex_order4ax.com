@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { migrate } from "./db.js";
 import { adminRouter, requireAdmin } from "./routes/admin.js";
 import { menusRouter } from "./routes/menus.js";
+import { adminOrderBatchesRouter, publicOrderBatchesRouter } from "./routes/orderBatches.js";
 import { ordersRouter, publicOrdersRouter } from "./routes/orders.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,8 +28,10 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/menus", menusRouter);
+app.use("/api/order-batches", publicOrderBatchesRouter);
 app.use("/api/orders", publicOrdersRouter);
 app.use("/api/orders", requireAdmin, ordersRouter);
+app.use("/api/admin/order-batches", requireAdmin, adminOrderBatchesRouter);
 app.use("/api/admin", adminRouter);
 
 if (webDistPath) {

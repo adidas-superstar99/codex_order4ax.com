@@ -1,24 +1,24 @@
-import { ArrowRight, Clock3, Search, ShieldCheck, ShoppingBag, Sparkles, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, History, MapPin, Search, ShieldCheck, ShoppingBag, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { createOrder, fetchMenus, fetchPopularMenus } from "../api";
+import { createOrder, fetchMenus, fetchOrderBatch, fetchPopularMenus } from "../api";
 import { BrandTabs } from "../components/BrandTabs";
 import { CustomRequestInput } from "../components/CustomRequestInput";
 import { MenuGrid } from "../components/MenuGrid";
 import { OrderCart } from "../components/OrderCart";
 import { SizeSelector } from "../components/SizeSelector";
-import type { Brand, CartItem, Menu, PopularMenuRow } from "../types";
+import type { Brand, CartItem, Menu, Order, OrderBatch, PopularMenuRow } from "../types";
 
 const brandHighlights: Record<Brand, { eyebrow: string; title: string; description: string }> = {
   STARBUCKS: {
     eyebrow: "Starbucks selection",
-    title: "오늘은 깊은 콜드브루 무드로 가볍게 시작해보세요.",
-    description: "신메뉴와 시즌 음료를 빠르게 훑고, 자주 마시는 조합을 한 번에 담을 수 있게 다듬었습니다."
+    title: "자주 찾는 커피와 티 메뉴를 위쪽에 먼저 배치했습니다.",
+    description: "인기 메뉴를 빠르게 고르고, 나머지 전체 메뉴도 그대로 탐색할 수 있게 React 구조를 유지한 채 정리했습니다."
   },
   TWOSOME: {
     eyebrow: "Twosome selection",
-    title: "부드러운 디저트 페어링이 어울리는 메뉴를 골라보세요.",
-    description: "티, 라떼, 빙수까지 카테고리 흐름이 더 분명하게 보이도록 화면을 정리했습니다."
+    title: "투썸플레이스 메뉴도 같은 흐름으로 바로 주문할 수 있어요.",
+    description: "추천 고정 메뉴가 없는 경우에는 전체 메뉴 탐색에 집중하도록 구성했습니다."
   }
 };
 
@@ -27,63 +27,177 @@ const brandNames: Record<Brand, string> = {
   TWOSOME: "투썸플레이스"
 };
 
-const statusSteps = ["주문 작성", "주문 확정", "매장 주문 완료", "수령 완료"];
+const statusSteps = ["주문 목록 선택", "메뉴 담기", "주문 제출", "관리자 취합"];
 
-export function OrderPage() {
+const featuredMenuNames = [
+  "아이스카페아메리카노",
+  "카페아메리카노",
+  "아이스카페라테",
+  "카페라테",
+  "바닐라크림콜드브루",
+  "콜드브루",
+  "아이스유스베리티",
+  "유스베리티",
+  "딸기아사이레모네이드",
+  "아이스유자민트티",
+  "유자민트티",
+  "아이스자몽허니블랙티",
+  "자몽허니블랙티"
+];
+
+type OrderFormState = {
+  ordererName: string;
+  team: string;
+  contact: string;
+  memo: string;
+};
+
+type RecentOrderPreset = {
+  savedAt: string;
+  form: OrderFormState;
+  items: CartItem[];
+};
+
+type RecentOrderReceipt = {
+  savedAt: string;
+  batchId: string;
+  batchTitle: string;
+  ordererName: string;
+  team?: string;
+  items: CartItem[];
+};
+
+const defaultForm = (department = "AX팀"): OrderFormState => ({
+  ordererName: "",
+  team: department,
+  contact: "",
+  memo: ""
+});
+
+function getRecentOrderKey() {
+  return "samoo-ax-recent-order-preset-v1";
+}
+
+function getRecentReceiptKey(batchId: string) {
+  return `samoo-ax-recent-order-receipt-v1:${batchId}`;
+}
+
+function normalizeMenuName(value: string) {
+  return value.replace(/\s+/g, "").trim().toLowerCase();
+}
+
+export function OrderPage({ batchId }: { batchId: string }) {
+  const [batch, setBatch] = useState<OrderBatch | null>(null);
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [popularRows, setPopularRows] = useState<PopularMenuRow[]>([]);
+  const [liveOrderRows, setLiveOrderRows] = useState<PopularMenuRow[]>([]);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("ALL");
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [customRequest, setCustomRequest] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [form, setForm] = useState({ ordererName: "", team: "", contact: "", memo: "" });
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [form, setForm] = useState<OrderFormState>(() => defaultForm());
+  const [recentPreset, setRecentPreset] = useState<RecentOrderPreset | null>(null);
+  const [recentReceipt, setRecentReceipt] = useState<RecentOrderReceipt | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchOrderBatch(batchId)
+      .then((nextBatch) => {
+        setBatch(nextBatch);
+        setForm((current) => ({ ...current, team: current.team || nextBatch.department || "AX팀" }));
+      })
+      .catch((error) => setStatusMessage(error instanceof Error ? error.message : "주문 목록을 찾을 수 없습니다."));
+  }, [batchId]);
+
+  useEffect(() => {
+    try {
+      const savedPreset = window.localStorage.getItem(getRecentOrderKey());
+      if (savedPreset) {
+        setRecentPreset(JSON.parse(savedPreset) as RecentOrderPreset);
+      }
+
+      const savedReceipt = window.localStorage.getItem(getRecentReceiptKey(batchId));
+      if (savedReceipt) {
+        setRecentReceipt(JSON.parse(savedReceipt) as RecentOrderReceipt);
+      } else {
+        setRecentReceipt(null);
+      }
+    } catch {
+      setRecentPreset(null);
+      setRecentReceipt(null);
+    }
+  }, [batchId]);
 
   useEffect(() => {
     fetchMenus({ brand })
       .then(setMenus)
       .catch((error) => setStatusMessage(error.message));
 
-    fetchPopularMenus({ brand, limit: 3 })
-      .then(setPopularRows)
-      .catch(() => setPopularRows([]));
-  }, [brand]);
+    fetchPopularMenus({ batchId, limit: 8 })
+      .then(setLiveOrderRows)
+      .catch(() => setLiveOrderRows([]));
+  }, [batchId, brand]);
 
-  const categories = useMemo(() => ["ALL", ...new Set(menus.map((menu) => menu.category))], [menus]);
+  const categories = useMemo(() => [...new Set(menus.map((menu) => menu.category))], [menus]);
   const visibleMenus = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return menus.filter((menu) => {
-      if (category !== "ALL" && menu.category !== category) return false;
       if (normalized && !menu.name.toLowerCase().includes(normalized)) return false;
       return true;
     });
-  }, [category, menus, query]);
+  }, [menus, query]);
 
-  const fallbackMenus = useMemo(() => menus.filter((menu) => menu.isNew || menu.isSeasonal).slice(0, 3), [menus]);
+  const featuredMenus = useMemo(() => {
+    const menuMap = new Map(menus.map((menu) => [normalizeMenuName(menu.name), menu]));
+    return featuredMenuNames
+      .map((name) => menuMap.get(normalizeMenuName(name)))
+      .filter((menu): menu is Menu => Boolean(menu));
+  }, [menus]);
+
   const popularMenus = useMemo(() => {
-    if (!popularRows.length) return [];
+    if (!liveOrderRows.length) return [];
 
-    return popularRows
+    return liveOrderRows
       .map((row) => {
         const menu = menus.find((item) => item.id === row.menuId)
-          ?? menus.find((item) => item.name === row.menuName && item.category === row.category);
+          ?? menus.find((item) => normalizeMenuName(item.name) === normalizeMenuName(row.menuName) && item.category === row.category);
         if (!menu) return null;
-        return { ...menu, orderedQuantity: row.quantity };
+        return { ...menu, orderedQuantity: row.quantity, ordererNames: row.ordererNames };
       })
-      .filter((menu): menu is Menu & { orderedQuantity: number } => Boolean(menu));
-  }, [menus, popularRows]);
+      .filter((menu): menu is Menu & { orderedQuantity: number; ordererNames: string[] } => Boolean(menu));
+  }, [liveOrderRows, menus]);
 
-  const spotlightMenus = popularMenus.length ? popularMenus : fallbackMenus;
-  const spotlightTitle = popularMenus.length ? "이번 주문 인기 메뉴" : "신메뉴 · 시즌 메뉴";
-  const spotlightHint = popularMenus.length ? "오늘 주문에서 많이 담긴 메뉴" : "아직 주문 데이터가 적어 신메뉴를 먼저 보여드려요.";
   const totalCartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const topCategories = useMemo(() => categories.filter((item) => item !== "ALL").slice(0, 4), [categories]);
+  const totalOrderedQuantity = useMemo(() => liveOrderRows.reduce((sum, item) => sum + item.quantity, 0), [liveOrderRows]);
+  const visibleMenusByCategory = useMemo(
+    () => categories
+      .map((categoryName) => ({
+        categoryName,
+        menus: visibleMenus.filter((menu) => menu.category === categoryName)
+      }))
+      .filter((group) => group.menus.length),
+    [categories, visibleMenus]
+  );
   const heroCopy = brandHighlights[brand];
+
+  useEffect(() => {
+    if (!visibleMenusByCategory.length) {
+      setOpenCategories([]);
+      return;
+    }
+
+    setOpenCategories((current) => {
+      if (query.trim()) {
+        return visibleMenusByCategory.map((group) => group.categoryName);
+      }
+
+      return current.length ? current : [visibleMenusByCategory[0].categoryName];
+    });
+  }, [query, visibleMenusByCategory]);
 
   function openMenu(menu: Menu) {
     setSelectedMenu(menu);
@@ -110,12 +224,73 @@ export function OrderPage() {
     setSelectedMenu(null);
   }
 
+  function toggleCategory(categoryName: string) {
+    setOpenCategories((current) =>
+      current.includes(categoryName)
+        ? current.filter((item) => item !== categoryName)
+        : [...current, categoryName]
+    );
+  }
+
+  function applyRecentOrder() {
+    if (!recentPreset) return;
+    setForm(recentPreset.form);
+    setCart(
+      recentPreset.items.map((item) => ({
+        ...item,
+        localId: crypto.randomUUID()
+      }))
+    );
+    setStatusMessage("이 기기에 저장된 최근 주문을 불러왔습니다.");
+  }
+
+  function saveRecentOrder(order: Order) {
+    const preset: RecentOrderPreset = {
+      savedAt: new Date().toISOString(),
+      form: {
+        ordererName: order.ordererName,
+        team: order.team || batch?.department || "AX팀",
+        contact: order.contact || "",
+        memo: order.memo || ""
+      },
+      items: order.items.map((item) => ({
+        localId: crypto.randomUUID(),
+        brand: item.brand,
+        menuId: item.menuId,
+        menuName: item.menuName,
+        category: item.category,
+        size: item.size,
+        quantity: item.quantity,
+        customRequest: item.customRequest
+      }))
+    };
+
+    const receipt: RecentOrderReceipt = {
+      savedAt: new Date().toISOString(),
+      batchId,
+      batchTitle: batch?.title || "주문 목록",
+      ordererName: order.ordererName,
+      team: order.team,
+      items: preset.items
+    };
+
+    window.localStorage.setItem(getRecentOrderKey(), JSON.stringify(preset));
+    window.localStorage.setItem(getRecentReceiptKey(batchId), JSON.stringify(receipt));
+    setRecentPreset(preset);
+    setRecentReceipt(receipt);
+  }
+
   async function submitOrder(event: FormEvent) {
     event.preventDefault();
     setStatusMessage("");
 
     if (!form.ordererName.trim()) {
       setStatusMessage("주문자 이름을 입력해 주세요.");
+      return;
+    }
+
+    if (!form.team.trim()) {
+      setStatusMessage("부서명을 입력해 주세요.");
       return;
     }
 
@@ -126,12 +301,13 @@ export function OrderPage() {
 
     setIsSubmitting(true);
     try {
-      await createOrder({ ...form, items: cart });
+      const order = await createOrder({ batchId, ...form, items: cart });
+      saveRecentOrder(order);
       setCart([]);
-      setForm({ ordererName: "", team: "", contact: "", memo: "" });
-      setStatusMessage("주문이 정상적으로 접수됐습니다.");
-      fetchPopularMenus({ brand, limit: 3 })
-        .then(setPopularRows)
+      setForm(defaultForm(batch?.department || "AX팀"));
+      setStatusMessage("주문이 정상적으로 접수됐습니다. 아래 최근 저장 주문에서 바로 확인할 수 있어요.");
+      fetchPopularMenus({ batchId, limit: 8 })
+        .then(setLiveOrderRows)
         .catch(() => undefined);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "주문 처리 중 문제가 발생했습니다.");
@@ -144,49 +320,75 @@ export function OrderPage() {
     <main className="app-shell premium-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">{heroCopy.eyebrow}</p>
-          <h1>AX 전용 음료 주문을 더 빠르고 세련되게.</h1>
+          <p className="eyebrow">SAMOO AX 음료 주문</p>
+          <h1>{batch?.title || "주문 목록을 불러오는 중입니다."}</h1>
           <p className="hero-description">{heroCopy.title} {heroCopy.description}</p>
           <div className="hero-actions">
-            <button className="hero-cta" type="button" onClick={() => document.getElementById("menu-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <a className="text-link" href="/">
+              <ArrowLeft size={18} />
+              주문 목록으로
+            </a>
+            <button
+              className="hero-cta"
+              type="button"
+              onClick={() => document.getElementById("menu-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
               메뉴 고르기
               <ArrowRight size={18} />
             </button>
-            <a className="admin-link subtle-link" href="/admin">관리자 보기</a>
           </div>
         </div>
 
         <div className="hero-meta-card">
           <div className="hero-meta-header">
             <span className="brand-chip">{brandNames[brand]}</span>
-            <span className="meta-hint">실시간 선택 상태</span>
+            <span className="meta-hint">{heroCopy.eyebrow}</span>
           </div>
-          <div className="hero-stats-grid">
-            <div className="stat-card glow-card">
-              <Sparkles size={18} />
-              <strong>{spotlightMenus.length}</strong>
-              <span>{popularMenus.length ? "이번 주문 인기" : "신메뉴 · 시즌 메뉴"}</span>
+          <div className="batch-inline-meta">
+            <span className="department-badge">{batch?.department || "AX팀"}</span>
+            <span className="batch-meta-text">
+              <MapPin size={14} />
+              {batch?.memo || "선택한 주문 목록에 맞춰 주문을 진행해 주세요."}
+            </span>
+          </div>
+          <div className="hero-preview-panel">
+            <div className="panel-title-row compact-preview-title">
+              <div>
+                <p className="section-kicker">Live order preview</p>
+                <h2>주문 들어온 메뉴</h2>
+              </div>
+              <span className="pill-count">{totalOrderedQuantity}잔</span>
             </div>
-            <div className="stat-card">
-              <Search size={18} />
-              <strong>{visibleMenus.length}</strong>
-              <span>현재 탐색 가능</span>
-            </div>
+            {popularMenus.length ? (
+              <div className="hero-order-preview-list">
+                {popularMenus.map((menu) => (
+                  <button className="hero-order-preview-item" key={menu.id} type="button" onClick={() => openMenu(menu)}>
+                    <img src={menu.imageUrl} alt="" loading="lazy" />
+                    <div>
+                      <strong>{menu.name}</strong>
+                      <span>{menu.orderedQuantity}잔 주문</span>
+                      <small>{menu.ordererNames.join(", ")}</small>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state compact-empty-state">
+                아직 저장된 주문이 없어요. 첫 주문이 들어오면 이 자리에 메뉴 썸네일과 수량이 바로 표시됩니다.
+              </div>
+            )}
+          </div>
+          <div className="hero-stats-grid single-stat-grid">
             <div className="stat-card">
               <Users size={18} />
-              <strong>{totalCartCount}</strong>
-              <span>담긴 수량</span>
-            </div>
-            <div className="stat-card">
-              <Clock3 size={18} />
-              <strong>{topCategories.length || categories.length - 1}</strong>
-              <span>주요 카테고리</span>
+              <strong>{totalOrderedQuantity}</strong>
+              <span>총 주문 수량</span>
             </div>
           </div>
           <div className="hero-progress">
             {statusSteps.map((step, index) => (
               <div className="progress-step" key={step}>
-                <span className={index < 2 ? "progress-dot active" : "progress-dot"} />
+                <span className={index < 3 ? "progress-dot active" : "progress-dot"} />
                 <small>{step}</small>
               </div>
             ))}
@@ -199,7 +401,7 @@ export function OrderPage() {
           <div className="section-heading-row">
             <div>
               <p className="section-kicker">Menu directory</p>
-              <h2>브랜드별 메뉴를 한 번에 비교하고 담기</h2>
+              <h2>브랜드별 전체 메뉴를 비교하고 바로 담기</h2>
             </div>
             <span className="section-count">{visibleMenus.length} items</span>
           </div>
@@ -209,7 +411,6 @@ export function OrderPage() {
               value={brand}
               onChange={(nextBrand) => {
                 setBrand(nextBrand);
-                setCategory("ALL");
               }}
             />
             <div className="search-shell">
@@ -218,38 +419,22 @@ export function OrderPage() {
             </div>
           </div>
 
-          <div className="category-pills" aria-label="카테고리 필터">
-            {categories.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={category === item ? "active" : ""}
-                onClick={() => setCategory(item)}
-              >
-                {item === "ALL" ? "전체" : item}
-              </button>
-            ))}
-          </div>
-
-          {spotlightMenus.length ? (
+          {featuredMenus.length ? (
             <section className="featured-strip">
               <div className="section-heading-row compact">
                 <div>
-                  <p className="section-kicker">Quick picks</p>
-                  <h3>{spotlightTitle}</h3>
-                  <p className="featured-strip-hint">{spotlightHint}</p>
+                  <p className="section-kicker">Priority picks</p>
+                  <h3>인기 메뉴</h3>
+                  <p className="featured-strip-hint">요청하신 우선순서대로 최상단에 배치했습니다.</p>
                 </div>
               </div>
-              <div className="featured-grid">
-                {spotlightMenus.map((menu) => (
-                  <button className="featured-card" key={menu.id} type="button" onClick={() => openMenu(menu)}>
+              <div className="featured-grid featured-grid-scroll">
+                {featuredMenus.map((menu) => (
+                  <button className="featured-card priority-card" key={menu.id} type="button" onClick={() => openMenu(menu)}>
                     <img src={menu.imageUrl} alt="" loading="lazy" />
                     <div>
                       <strong>{menu.name}</strong>
-                      <span>
-                        {menu.category}
-                        {"orderedQuantity" in menu ? ` · ${menu.orderedQuantity}잔` : ""}
-                      </span>
+                      <span>{menu.category}</span>
                     </div>
                   </button>
                 ))}
@@ -257,7 +442,57 @@ export function OrderPage() {
             </section>
           ) : null}
 
-          <MenuGrid menus={visibleMenus} onSelect={openMenu} />
+          {popularMenus.length ? (
+            <section className="featured-strip">
+              <div className="section-heading-row compact">
+                <div>
+                  <p className="section-kicker">Live trend</p>
+                  <h3>이번 주문 인기 메뉴</h3>
+                  <p className="featured-strip-hint">현재 선택한 주문 목록에서 많이 담긴 메뉴입니다.</p>
+                </div>
+              </div>
+              <div className="featured-grid">
+                {popularMenus.map((menu) => (
+                  <button className="featured-card" key={menu.id} type="button" onClick={() => openMenu(menu)}>
+                    <img src={menu.imageUrl} alt="" loading="lazy" />
+                    <div>
+                      <strong>{menu.name}</strong>
+                      <span>{menu.category} · {menu.orderedQuantity}잔</span>
+                      <small>{menu.ordererNames.join(", ")}</small>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="featured-strip">
+            <div className="section-heading-row compact">
+              <div>
+                <p className="section-kicker">Menu dropdowns</p>
+                <h3>카테고리별 메뉴</h3>
+                <p className="featured-strip-hint">메뉴 수가 많아서 카테고리별로 펼쳐 보고 담을 수 있게 바꿨습니다.</p>
+              </div>
+            </div>
+
+            {visibleMenusByCategory.length ? visibleMenusByCategory.map((group) => {
+              const isOpen = openCategories.includes(group.categoryName);
+              return (
+                <section className="category-dropdown" key={group.categoryName}>
+                  <button className={isOpen ? "category-dropdown-trigger active" : "category-dropdown-trigger"} type="button" onClick={() => toggleCategory(group.categoryName)}>
+                    <div>
+                      <strong>{group.categoryName}</strong>
+                      <span>{group.menus.length}개 메뉴</span>
+                    </div>
+                    <ChevronDown size={18} />
+                  </button>
+                  {isOpen ? <MenuGrid menus={group.menus} onSelect={openMenu} /> : null}
+                </section>
+              );
+            }) : (
+              <div className="empty-state">검색 결과에 맞는 메뉴가 아직 없어요.</div>
+            )}
+          </section>
         </section>
 
         <aside className="side-panel side-panel-premium">
@@ -275,8 +510,8 @@ export function OrderPage() {
                 <input value={form.ordererName} onChange={(event) => setForm({ ...form, ordererName: event.target.value })} placeholder="이름을 입력해 주세요" />
               </label>
               <label className="field">
-                <span>팀</span>
-                <input value={form.team} onChange={(event) => setForm({ ...form, team: event.target.value })} placeholder="소속 팀" />
+                <span>부서명 *</span>
+                <input value={form.team} onChange={(event) => setForm({ ...form, team: event.target.value })} placeholder="부서명을 입력해 주세요" />
               </label>
             </div>
             <label className="field">
@@ -287,6 +522,12 @@ export function OrderPage() {
               <span>전달 메모</span>
               <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="공동 주문 메모가 있으면 남겨 주세요" />
             </label>
+            {recentPreset ? (
+              <button className="secondary-button" type="button" onClick={applyRecentOrder}>
+                <History size={16} />
+                최근 주문 불러오기
+              </button>
+            ) : null}
           </div>
 
           <div className="panel-section panel-glass cart-panel">
@@ -310,36 +551,35 @@ export function OrderPage() {
             />
           </div>
 
-          <div className="panel-section panel-glass status-panel">
-            <div className="panel-title-row">
-              <div>
-                <p className="section-kicker">Flow</p>
-                <h2>주문 진행 흐름</h2>
-              </div>
-            </div>
-            <div className="status-step-list">
-              {statusSteps.map((step, index) => (
-                <div className="status-step-item" key={step}>
-                  <span className={index === 0 ? "status-step-bullet active" : "status-step-bullet"} />
-                  <div>
-                    <strong>{step}</strong>
-                    <p>
-                      {index === 0
-                        ? "메뉴와 옵션을 담고 제출하면 접수됩니다."
-                        : index === 1
-                          ? "관리자가 취합을 마치면 주문 확정으로 표시됩니다."
-                          : index === 2
-                            ? "실제 스벅·투썸 주문이 끝나면 관리자 화면에서 표시됩니다."
-                            : "음료를 받은 뒤 수령 완료로 정리됩니다."}
-                    </p>
-                  </div>
+          {recentReceipt ? (
+            <div className="panel-section panel-glass">
+              <div className="panel-title-row">
+                <div>
+                  <p className="section-kicker">Saved check</p>
+                  <h2>최근 저장된 주문</h2>
                 </div>
-              ))}
+                <CheckCircle2 size={18} />
+              </div>
+              <div className="recent-order-summary">
+                <strong>{recentReceipt.ordererName}</strong>
+                <span>
+                  {recentReceipt.team || batch?.department || "AX팀"} · {new Date(recentReceipt.savedAt).toLocaleString("ko-KR")}
+                </span>
+              </div>
+              <div className="recent-order-list">
+                {recentReceipt.items.map((item) => (
+                  <div className="recent-order-item" key={`${item.menuId}-${item.size}-${item.menuName}`}>
+                    <strong>{item.menuName}</strong>
+                    <span>{item.size} · {item.quantity}잔</span>
+                  </div>
+                ))}
+              </div>
+              <p className="featured-strip-hint">이 기기에서 마지막으로 저장에 성공한 주문입니다. 같은 구성을 다음 주문에 바로 다시 불러올 수 있어요.</p>
             </div>
-          </div>
+          ) : null}
 
           {statusMessage ? <p className="status-message premium-status">{statusMessage}</p> : null}
-          <button className="primary-button premium-submit" type="submit" disabled={isSubmitting}>
+          <button className="primary-button premium-submit" type="submit" disabled={isSubmitting || !batch || batch.status !== "open"}>
             <ShoppingBag size={18} />
             {isSubmitting ? "주문 제출 중" : `주문 제출${totalCartCount ? ` · ${totalCartCount}잔` : ""}`}
           </button>
