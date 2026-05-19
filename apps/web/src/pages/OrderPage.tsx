@@ -54,6 +54,11 @@ type RecentOrderReceipt = {
   items: CartItem[];
 };
 
+type CheckoutErrors = {
+  ordererName?: string;
+  team?: string;
+};
+
 const defaultForm = (department = "AX팀"): OrderFormState => ({
   ordererName: "",
   team: department,
@@ -90,6 +95,8 @@ export function OrderPage({ batchId }: { batchId: string }) {
   const [recentReceipt, setRecentReceipt] = useState<RecentOrderReceipt | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [checkoutErrors, setCheckoutErrors] = useState<CheckoutErrors>({});
 
   useEffect(() => {
     fetchOrderBatch(batchId)
@@ -104,7 +111,15 @@ export function OrderPage({ batchId }: { batchId: string }) {
     try {
       const savedPreset = window.localStorage.getItem(getRecentOrderKey());
       if (savedPreset) {
-        setRecentPreset(JSON.parse(savedPreset) as RecentOrderPreset);
+        const parsedPreset = JSON.parse(savedPreset) as RecentOrderPreset;
+        setRecentPreset(parsedPreset);
+        setForm((current) => ({
+          ...current,
+          ordererName: current.ordererName || parsedPreset.form.ordererName,
+          team: current.team || parsedPreset.form.team,
+          contact: current.contact || parsedPreset.form.contact,
+          memo: current.memo || parsedPreset.form.memo
+        }));
       }
 
       const savedReceipt = window.localStorage.getItem(getRecentReceiptKey(batchId));
@@ -162,15 +177,22 @@ export function OrderPage({ batchId }: { batchId: string }) {
   const totalCartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const totalOrderedQuantity = useMemo(() => liveOrderRows.reduce((sum, item) => sum + item.quantity, 0), [liveOrderRows]);
   const visibleMenusByCategory = useMemo(
-    () => categories
-      .map((categoryName) => ({
-        categoryName,
-        menus: visibleMenus.filter((menu) => menu.category === categoryName)
-      }))
-      .filter((group) => group.menus.length),
+    () => {
+      const groupedMenus = categories
+        .map((categoryName) => ({
+          categoryName,
+          menus: visibleMenus.filter((menu) => menu.category === categoryName)
+        }))
+        .filter((group) => group.menus.length);
+
+      const newMenus = visibleMenus.filter((menu) => menu.isNew);
+      return newMenus.length
+        ? [{ categoryName: "신메뉴", menus: newMenus }, ...groupedMenus]
+        : groupedMenus;
+    },
     [categories, visibleMenus]
   );
-  const completedStepCount = batch?.status === "closed" ? 2 : 1;
+  const completedStepCount = recentReceipt || batch?.status === "closed" ? 2 : 1;
 
   useEffect(() => {
     if (!visibleMenusByCategory.length) {
@@ -210,6 +232,17 @@ export function OrderPage({ batchId }: { batchId: string }) {
       }
     ]);
     setSelectedMenu(null);
+  }
+
+  function openCheckoutModal() {
+    if (!cart.length) {
+      setStatusMessage("장바구니에 음료를 먼저 담아 주세요.");
+      return;
+    }
+
+    setCheckoutErrors({});
+    setStatusMessage("");
+    setIsCheckoutOpen(true);
   }
 
   function toggleCategory(categoryName: string) {
@@ -271,14 +304,19 @@ export function OrderPage({ batchId }: { batchId: string }) {
   async function submitOrder(event: FormEvent) {
     event.preventDefault();
     setStatusMessage("");
+    const nextErrors: CheckoutErrors = {};
 
     if (!form.ordererName.trim()) {
-      setStatusMessage("주문자 이름을 입력해 주세요.");
-      return;
+      nextErrors.ordererName = "이름을 입력해 주세요.";
     }
 
     if (!form.team.trim()) {
-      setStatusMessage("부서명을 입력해 주세요.");
+      nextErrors.team = "부서명을 입력해 주세요.";
+    }
+
+    if (nextErrors.ordererName || nextErrors.team) {
+      setCheckoutErrors(nextErrors);
+      setIsCheckoutOpen(true);
       return;
     }
 
@@ -292,8 +330,15 @@ export function OrderPage({ batchId }: { batchId: string }) {
       const order = await createOrder({ batchId, ...form, items: cart });
       saveRecentOrder(order);
       setCart([]);
-      setForm(defaultForm(batch?.department || "AX팀"));
-      setStatusMessage("주문이 정상적으로 접수됐습니다. 아래 최근 저장 주문에서 바로 확인할 수 있어요.");
+      setForm({
+        ordererName: order.ordererName,
+        team: order.team || batch?.department || "AX팀",
+        contact: order.contact || "",
+        memo: order.memo || ""
+      });
+      setCheckoutErrors({});
+      setIsCheckoutOpen(false);
+      setStatusMessage("주문이 정상적으로 접수됐습니다.");
       fetchPopularMenus({ batchId, limit: 8 })
         .then(setLiveOrderRows)
         .catch(() => undefined);
@@ -457,40 +502,6 @@ export function OrderPage({ batchId }: { batchId: string }) {
         </section>
 
         <aside className="side-panel side-panel-premium">
-          <div className="panel-section panel-glass">
-            <div className="panel-title-row">
-              <div>
-                <p className="section-kicker">Checkout</p>
-                <h2>주문자 정보</h2>
-              </div>
-              <ShieldCheck size={18} />
-            </div>
-            <div className="field-grid">
-              <label className="field">
-                <span>이름 *</span>
-                <input value={form.ordererName} onChange={(event) => setForm({ ...form, ordererName: event.target.value })} placeholder="이름을 입력해 주세요" />
-              </label>
-              <label className="field">
-                <span>부서명 *</span>
-                <input value={form.team} onChange={(event) => setForm({ ...form, team: event.target.value })} placeholder="부서명을 입력해 주세요" />
-              </label>
-            </div>
-            <label className="field">
-              <span>연락처 또는 메신저 ID</span>
-              <input value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value })} placeholder="수령 안내용" />
-            </label>
-            <label className="field">
-              <span>전달 메모</span>
-              <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="공동 주문 메모가 있으면 남겨 주세요" />
-            </label>
-            {recentPreset ? (
-              <button className="secondary-button" type="button" onClick={applyRecentOrder}>
-                <History size={16} />
-                최근 주문 불러오기
-              </button>
-            ) : null}
-          </div>
-
           <div className="panel-section panel-glass cart-panel">
             <div className="panel-title-row">
               <div>
@@ -538,9 +549,9 @@ export function OrderPage({ batchId }: { batchId: string }) {
           ) : null}
 
           {statusMessage ? <p className="status-message premium-status">{statusMessage}</p> : null}
-          <button className="primary-button premium-submit page-submit-button" type="submit" disabled={isSubmitting || !batch || batch.status !== "open"}>
+          <button className="primary-button premium-submit page-submit-button" type="button" disabled={isSubmitting || !batch || batch.status !== "open"} onClick={openCheckoutModal}>
             <ShoppingBag size={18} />
-            {isSubmitting ? "주문 제출 중" : `주문 제출${totalCartCount ? ` · ${totalCartCount}잔` : ""}`}
+            {isSubmitting ? "주문 제출 중" : `주문하기${totalCartCount ? ` · ${totalCartCount}잔` : ""}`}
           </button>
         </aside>
       </form>
@@ -550,10 +561,55 @@ export function OrderPage({ batchId }: { batchId: string }) {
           <strong>{totalCartCount ? `${totalCartCount}잔 담김` : "메뉴를 담아 주세요"}</strong>
           <span>{cart.length ? "바로 주문할 수 있습니다." : "메뉴를 선택하면 바로 주문할 수 있습니다."}</span>
         </div>
-        <button className="primary-button floating-submit-button" type="submit" form="order-form" disabled={isSubmitting || !batch || batch.status !== "open"}>
+        <button className="primary-button floating-submit-button" type="button" disabled={isSubmitting || !batch || batch.status !== "open"} onClick={openCheckoutModal}>
           {isSubmitting ? "주문 제출 중" : "주문하기"}
         </button>
       </div>
+
+      {isCheckoutOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal premium-modal checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+            <button className="close-button" type="button" aria-label="닫기" onClick={() => setIsCheckoutOpen(false)}>
+              <X size={20} />
+            </button>
+            <div className="modal-copy">
+              <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[brand]}`}</span>
+              <h2 id="checkout-modal-title">주문자 정보</h2>
+              <p>한 번 입력한 정보는 다음 주문에도 자동으로 기억됩니다.</p>
+            </div>
+            <div className="field-grid">
+              <label className="field">
+                <span>이름 *</span>
+                <input value={form.ordererName} onChange={(event) => setForm({ ...form, ordererName: event.target.value })} placeholder="이름을 입력해 주세요" />
+                {checkoutErrors.ordererName ? <small className="field-error">{checkoutErrors.ordererName}</small> : null}
+              </label>
+              <label className="field">
+                <span>부서명 *</span>
+                <input value={form.team} onChange={(event) => setForm({ ...form, team: event.target.value })} placeholder="부서명을 입력해 주세요" />
+                {checkoutErrors.team ? <small className="field-error">{checkoutErrors.team}</small> : null}
+              </label>
+            </div>
+            <label className="field">
+              <span>연락처 또는 메신저 ID</span>
+              <input value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value })} placeholder="수령 안내용" />
+            </label>
+            <label className="field">
+              <span>전달 메모</span>
+              <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="공동 주문 메모가 있으면 남겨 주세요" />
+            </label>
+            {recentPreset ? (
+              <button className="secondary-button" type="button" onClick={applyRecentOrder}>
+                <History size={16} />
+                최근 주문 불러오기
+              </button>
+            ) : null}
+            <button className="primary-button premium-submit modal-submit-button" type="submit" form="order-form" disabled={isSubmitting || !batch || batch.status !== "open"}>
+              <ShieldCheck size={18} />
+              {isSubmitting ? "주문 제출 중" : "주문 확정하기"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {selectedMenu ? (
         <div className="modal-backdrop" role="presentation">

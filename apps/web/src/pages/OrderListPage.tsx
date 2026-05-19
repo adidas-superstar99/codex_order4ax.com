@@ -15,6 +15,12 @@ function formatCreatedAt(value: string) {
 export function OrderListPage() {
   const [batches, setBatches] = useState<OrderBatch[]>([]);
   const [message, setMessage] = useState("");
+  const departmentSummary = batches.reduce<Record<string, number>>((acc, batch) => {
+    const key = batch.department || "기타";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  const summaryItems = Object.entries(departmentSummary).map(([department, count]) => `${department} 주문 ${count}건`);
 
   useEffect(() => {
     fetchPublicOrderBatches()
@@ -39,13 +45,13 @@ export function OrderListPage() {
 
         <div className="hero-meta-card">
           <div className="hero-meta-header">
-            <span className="brand-chip order-list-chip">주문부서 : AX팀</span>
+            <span className="brand-chip order-list-chip">주문 요약</span>
           </div>
           <div className="hero-stats-grid">
             <div className="stat-card glow-card">
               <ShieldCheck size={18} />
-              <strong>{batches.length}</strong>
-              <span>현재 열려 있는 주문</span>
+              <strong>{summaryItems.length ? summaryItems.join(" · ") : "열려 있는 주문 없음"}</strong>
+              <span>부서별 열려 있는 주문 현황</span>
             </div>
             <div className="stat-card">
               <Clock3 size={18} />

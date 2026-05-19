@@ -426,7 +426,7 @@ textarea,
 
 .brand-segment-button {
   position: relative;
-  flex: 0 0 164px;
+  flex: 0 0 180px;
   padding: 0;
   overflow: hidden;
   border: 1px solid transparent;
@@ -435,12 +435,12 @@ textarea,
 .brand-segment-logo {
   display: block;
   width: 100%;
-  min-width: 138px;
-  height: 88px;
+  min-width: 148px;
+  height: 96px;
   object-fit: contain;
   border-radius: 12px;
-  background: #ffffff;
-  padding: 10px 12px;
+  background: transparent;
+  padding: 6px 8px;
 }
 
 .future-brand-button {
@@ -541,6 +541,12 @@ textarea {
 
 .field span {
   font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.field-error {
+  color: #fda4af;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -943,6 +949,10 @@ textarea {
   margin: 16px 0;
 }
 
+.checkout-modal {
+  width: min(520px, 100%);
+}
+
 .close-button {
   position: absolute;
   top: 28px;
@@ -1083,6 +1093,11 @@ textarea {
 
 .order-list-chip {
   font-size: 0.9rem;
+  padding: 0 14px;
+}
+
+.hero-order-chip {
+  font-size: 0.92rem;
   padding: 0 14px;
 }
 
@@ -1315,12 +1330,12 @@ th {
 
   .brand-segment-logo {
     min-width: 0;
-    height: 72px;
-    padding: 8px 10px;
+    height: 88px;
+    padding: 4px 6px;
   }
 
   .brand-segment-button {
-    flex-basis: 146px;
+    flex-basis: 172px;
   }
 
   .menu-grid {
