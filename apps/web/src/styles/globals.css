@@ -426,7 +426,7 @@ textarea,
 
 .brand-segment-button {
   position: relative;
-  flex: 0 0 180px;
+  flex: 0 0 196px;
   padding: 0;
   overflow: hidden;
   border: 1px solid transparent;
@@ -435,12 +435,12 @@ textarea,
 .brand-segment-logo {
   display: block;
   width: 100%;
-  min-width: 148px;
-  height: 96px;
+  min-width: 160px;
+  height: 112px;
   object-fit: contain;
   border-radius: 12px;
   background: transparent;
-  padding: 6px 8px;
+  padding: 2px 4px;
 }
 
 .future-brand-button {
@@ -1330,12 +1330,12 @@ th {
 
   .brand-segment-logo {
     min-width: 0;
-    height: 88px;
-    padding: 4px 6px;
+    height: 104px;
+    padding: 2px 4px;
   }
 
   .brand-segment-button {
-    flex-basis: 172px;
+    flex-basis: 188px;
   }
 
   .menu-grid {
