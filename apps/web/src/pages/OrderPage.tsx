@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, History, MapPin, Search, ShieldCheck, ShoppingBag, Trash2, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, History, Search, ShieldCheck, ShoppingBag, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { createOrder, fetchMenus, fetchOrderBatch, fetchPopularMenus } from "../api";
@@ -328,23 +328,13 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
         <div className="hero-meta-card">
           <div className="hero-meta-header">
-            <span className="brand-chip">{brandNames[brand]}</span>
-          </div>
-          <div className="batch-inline-meta">
-            <span className="department-badge">{batch?.department || "AX팀"}</span>
-            {batch?.memo ? (
-              <span className="batch-meta-text">
-                <MapPin size={14} />
-                {batch.memo}
-              </span>
-            ) : null}
+            <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[brand]}`}</span>
           </div>
           <div className="hero-preview-panel">
             <div className="panel-title-row compact-preview-title">
               <div>
                 <h2>주문 현황</h2>
               </div>
-              <span className="pill-count">{totalOrderedQuantity}잔</span>
             </div>
             {shouldShowPopularMenus ? (
               <div className="hero-order-preview-list">
@@ -363,13 +353,6 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <div className="empty-state compact-empty-state">아직 접수된 메뉴가 없습니다.</div>
             )}
           </div>
-          <div className="hero-stats-grid single-stat-grid">
-            <div className="stat-card">
-              <Users size={18} />
-              <strong>{totalOrderedQuantity}</strong>
-              <span>총 주문 수량</span>
-            </div>
-          </div>
           <div className="hero-progress">
             {statusSteps.map((step, index) => (
               <div className="progress-step" key={step}>
@@ -381,14 +364,13 @@ export function OrderPage({ batchId }: { batchId: string }) {
         </div>
       </section>
 
-      <form className="layout" onSubmit={submitOrder}>
+      <form className="layout" id="order-form" onSubmit={submitOrder}>
         <section className="main-panel main-panel-premium" id="menu-section">
           <div className="section-heading-row">
             <div>
-              <p className="section-kicker">Menu directory</p>
+              <p className="section-kicker">메뉴를 고르세요</p>
               <h2 className="menu-directory-title">MENU DIRECTORY</h2>
             </div>
-            <span className="section-count">{visibleMenus.length}</span>
           </div>
 
           <div className="toolbar premium-toolbar">
@@ -565,11 +547,11 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
       <div className="floating-submit-bar">
         <div>
-          <strong>{totalCartCount}잔 담김</strong>
-          <span>{cart.length ? "장바구니를 확인하고 바로 제출할 수 있어요." : "메뉴를 담으면 여기서 바로 제출할 수 있어요."}</span>
+          <strong>{totalCartCount ? `${totalCartCount}잔 담김` : "메뉴를 담아 주세요"}</strong>
+          <span>{cart.length ? "바로 주문할 수 있습니다." : "메뉴를 선택하면 바로 주문할 수 있습니다."}</span>
         </div>
-        <button className="primary-button floating-submit-button" type="button" disabled={isSubmitting} onClick={() => document.querySelector(".side-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-          주문 확인
+        <button className="primary-button floating-submit-button" type="submit" form="order-form" disabled={isSubmitting || !batch || batch.status !== "open"}>
+          {isSubmitting ? "주문 제출 중" : "주문하기"}
         </button>
       </div>
 
