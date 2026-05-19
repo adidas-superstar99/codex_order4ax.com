@@ -1,11 +1,29 @@
-import Database from "better-sqlite3";
+import { createRequire } from "node:module";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { nanoid } from "nanoid";
+import type BetterSqlite3 from "better-sqlite3";
 import { config, isPostgresUrl } from "./config.js";
 
 const usingPostgres = isPostgresUrl();
+const require = createRequire(import.meta.url);
 
-export const sqliteDb = usingPostgres ? null : new Database(config.databaseUrl);
+function createSqliteDb(): BetterSqlite3.Database | null {
+  if (usingPostgres) {
+    return null;
+  }
+
+  try {
+    const Database = require("better-sqlite3") as new (path: string) => BetterSqlite3.Database;
+    return new Database(config.databaseUrl);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `SQLite support is unavailable. Install the optional better-sqlite3 dependency or configure DATABASE_URL for Postgres. ${detail}`
+    );
+  }
+}
+
+export const sqliteDb = createSqliteDb();
 export const pgPool = usingPostgres
   ? new Pool({
       connectionString: config.databaseUrl,

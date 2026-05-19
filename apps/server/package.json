@@ -10,7 +10,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -25,5 +24,8 @@
     "@types/pg": "^8.15.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.8.1"
   }
 }
