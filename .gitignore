@@ -6,3 +6,6 @@ dist/
 *.db
 *.tsbuildinfo
 tools/*.log
+data/local-store.json
+server-run.log
+server-run.err.log
