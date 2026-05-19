@@ -392,7 +392,10 @@ textarea,
 }
 
 .premium-segmented {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .segmented button,
@@ -422,17 +425,43 @@ textarea,
 }
 
 .brand-segment-button {
+  position: relative;
+  flex: 0 0 164px;
   padding: 0;
   overflow: hidden;
+  border: 1px solid transparent;
 }
 
 .brand-segment-logo {
   display: block;
   width: 100%;
   min-width: 138px;
-  height: 68px;
-  object-fit: cover;
+  height: 88px;
+  object-fit: contain;
   border-radius: 12px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.future-brand-button {
+  opacity: 0.88;
+}
+
+.future-brand-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .segmented button.active,
@@ -1286,7 +1315,12 @@ th {
 
   .brand-segment-logo {
     min-width: 0;
-    height: 58px;
+    height: 72px;
+    padding: 8px 10px;
+  }
+
+  .brand-segment-button {
+    flex-basis: 146px;
   }
 
   .menu-grid {
