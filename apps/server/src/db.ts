@@ -1,11 +1,12 @@
 import { createRequire } from "node:module";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
-import { nanoid } from "nanoid";
 import type BetterSqlite3 from "better-sqlite3";
 import { config, isPostgresUrl } from "./config.js";
+import { initLocalStore } from "./localStore.js";
 
 const usingPostgres = isPostgresUrl();
 const require = createRequire(import.meta.url);
+let sqliteUnavailableReason: string | null = null;
 
 function createSqliteDb(): BetterSqlite3.Database | null {
   if (usingPostgres) {
@@ -16,10 +17,8 @@ function createSqliteDb(): BetterSqlite3.Database | null {
     const Database = require("better-sqlite3") as new (path: string) => BetterSqlite3.Database;
     return new Database(config.databaseUrl);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `SQLite support is unavailable. Install the optional better-sqlite3 dependency or configure DATABASE_URL for Postgres. ${detail}`
-    );
+    sqliteUnavailableReason = error instanceof Error ? error.message : String(error);
+    return null;
   }
 }
 
@@ -40,6 +39,10 @@ export function isPostgres() {
   return usingPostgres;
 }
 
+export function isLocalFallback() {
+  return !usingPostgres && !sqliteDb;
+}
+
 export async function migrate() {
   if (pgPool) {
     await pgPool.query(`
@@ -47,7 +50,7 @@ export async function migrate() {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         memo TEXT,
-        department TEXT NOT NULL DEFAULT 'AX팀',
+        department TEXT NOT NULL DEFAULT 'AX Team',
         status TEXT NOT NULL DEFAULT 'open',
         created_at TEXT NOT NULL,
         closed_at TEXT
@@ -84,24 +87,23 @@ export async function migrate() {
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_ordered_at ON orders(ordered_at);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);`);
+    return;
+  }
 
-    const existingBatch = await pgPool.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM order_batches");
-    if (Number(existingBatch.rows[0]?.count ?? "0") === 0) {
-      await pgPool.query(
-        `INSERT INTO order_batches (id, title, memo, department, status, created_at, closed_at)
-         VALUES ($1, $2, $3, $4, 'open', $5, $6)`,
-        [nanoid(), "기본 음료 주문", "로컬 확인용 기본 주문입니다.", "AX팀", new Date().toISOString(), null]
-      );
+  if (!sqliteDb) {
+    initLocalStore();
+    if (sqliteUnavailableReason) {
+      console.warn(`SQLite unavailable, using local JSON fallback instead. ${sqliteUnavailableReason}`);
     }
     return;
   }
 
-  sqliteDb!.exec(`
+  sqliteDb.exec(`
     CREATE TABLE IF NOT EXISTS order_batches (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       memo TEXT,
-      department TEXT NOT NULL DEFAULT 'AX팀',
+      department TEXT NOT NULL DEFAULT 'AX Team',
       status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL,
       closed_at TEXT
@@ -136,20 +138,12 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_order_batches_status ON order_batches(status);
   `);
 
-  const orderColumns = sqliteDb!.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
+  const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
   if (!orderColumns.some((column) => column.name === "batch_id")) {
-    sqliteDb!.exec("ALTER TABLE orders ADD COLUMN batch_id TEXT REFERENCES order_batches(id) ON DELETE SET NULL;");
+    sqliteDb.exec("ALTER TABLE orders ADD COLUMN batch_id TEXT REFERENCES order_batches(id) ON DELETE SET NULL;");
   }
 
-  sqliteDb!.exec("CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);");
-
-  const batchCount = sqliteDb!.prepare("SELECT COUNT(*) AS count FROM order_batches").get() as { count: number };
-  if (batchCount.count === 0) {
-    sqliteDb!.prepare(`
-      INSERT INTO order_batches (id, title, memo, department, status, created_at, closed_at)
-      VALUES (?, ?, ?, ?, 'open', ?, ?)
-    `).run(nanoid(), "기본 음료 주문", "로컬 확인용 기본 주문입니다.", "AX팀", new Date().toISOString(), null);
-  }
+  sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);");
 }
 
 export async function withPgTransaction<T>(callback: (client: PoolClient) => Promise<T>) {

@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
-import { isPostgres, pgAll, pgOne, sqliteDb, withPgTransaction } from "../db.js";
+import { isLocalFallback, isPostgres, pgAll, pgOne, sqliteDb, withPgTransaction } from "../db.js";
+import { readLocalStore, writeLocalStore } from "../localStore.js";
 import type {
   Brand,
   CreateOrderBatchInput,
@@ -106,6 +107,34 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     return (await getOrderById(orderId))!;
   }
 
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    const order: Order = {
+      id: orderId,
+      batchId,
+      orderedAt,
+      ordererName,
+      team: input.team?.trim() || undefined,
+      contact: input.contact?.trim() || undefined,
+      memo: input.memo?.trim() || undefined,
+      status: "submitted",
+      items: input.items.map((item) => ({
+        id: nanoid(),
+        orderId,
+        brand: item.brand,
+        menuId: item.menuId,
+        menuName: item.menuName,
+        category: item.category,
+        size: item.size,
+        quantity: item.quantity,
+        customRequest: item.customRequest?.trim() || undefined
+      }))
+    };
+    store.orders.push(order);
+    writeLocalStore(store);
+    return order;
+  }
+
   const insertOrder = sqliteDb!.prepare(`
     INSERT INTO orders (id, batch_id, ordered_at, orderer_name, team, contact, memo, status)
     VALUES (@id, @batchId, @orderedAt, @ordererName, @team, @contact, @memo, 'submitted')
@@ -176,6 +205,22 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
     return Promise.all(rows.map(mapOrderRowAsync));
   }
 
+  if (isLocalFallback()) {
+    return readLocalStore()
+      .orders
+      .filter((order) => {
+        if (filters.batchId && order.batchId !== filters.batchId) return false;
+        if (filters.status && order.status !== filters.status) return false;
+        if (filters.date) {
+          const range = getKoreanDateRange(filters.date);
+          if (order.orderedAt < range.start || order.orderedAt >= range.end) return false;
+        }
+        if (filters.brand && !order.items.some((item) => item.brand === filters.brand)) return false;
+        return true;
+      })
+      .sort((a, b) => b.orderedAt.localeCompare(a.orderedAt));
+  }
+
   const sqliteParams: Record<string, string> = {};
   if (filters.batchId) sqliteParams.batchId = filters.batchId;
   if (filters.date) {
@@ -202,6 +247,10 @@ export async function getOrderById(orderId: string): Promise<Order | undefined> 
     return row ? mapOrderRowAsync(row) : undefined;
   }
 
+  if (isLocalFallback()) {
+    return readLocalStore().orders.find((order) => order.id === orderId);
+  }
+
   const row = sqliteDb!.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as OrderRow | undefined;
   return row ? mapOrderRowSync(row) : undefined;
 }
@@ -210,6 +259,15 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   if (isPostgres()) {
     const result = await pgOne<{ id: string }>("UPDATE orders SET status = $1 WHERE id = $2 RETURNING id", [status, orderId]);
     return result ? getOrderById(orderId) : undefined;
+  }
+
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    const order = store.orders.find((entry) => entry.id === orderId);
+    if (!order) return undefined;
+    order.status = status;
+    writeLocalStore(store);
+    return order;
   }
 
   const result = sqliteDb!.prepare("UPDATE orders SET status = ? WHERE id = ?").run(status, orderId);
@@ -222,6 +280,17 @@ export async function deleteOrder(orderId: string) {
     await pgOne("DELETE FROM order_items WHERE order_id = $1", [orderId]);
     const result = await pgOne<{ id: string }>("DELETE FROM orders WHERE id = $1 RETURNING id", [orderId]);
     return Boolean(result);
+  }
+
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    const nextOrders = store.orders.filter((order) => order.id !== orderId);
+    const deleted = nextOrders.length !== store.orders.length;
+    if (deleted) {
+      store.orders = nextOrders;
+      writeLocalStore(store);
+    }
+    return deleted;
   }
 
   sqliteDb!.prepare("DELETE FROM order_items WHERE order_id = ?").run(orderId);
@@ -281,6 +350,17 @@ export async function bulkUpdateOrderStatus(
     for (const order of targetOrders) {
       await pgOne<{ id: string }>("UPDATE orders SET status = $1 WHERE id = $2 RETURNING id", [nextStatus, order.id]);
     }
+    return { updatedCount: targetOrders.length };
+  }
+
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    for (const order of store.orders) {
+      if (targetOrders.some((target) => target.id === order.id)) {
+        order.status = nextStatus;
+      }
+    }
+    writeLocalStore(store);
     return { updatedCount: targetOrders.length };
   }
 
@@ -348,6 +428,10 @@ export async function getOrderBatchById(batchId: string) {
     return row ? mapOrderBatchRow(row) : undefined;
   }
 
+  if (isLocalFallback()) {
+    return readLocalStore().orderBatches.find((batch) => batch.id === batchId);
+  }
+
   const row = sqliteDb!.prepare("SELECT * FROM order_batches WHERE id = ?").get(batchId) as OrderBatchRow | undefined;
   return row ? mapOrderBatchRow(row) : undefined;
 }
@@ -360,7 +444,7 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
     id: nanoid(),
     title,
     memo: input.memo?.trim() || undefined,
-    department: input.department?.trim() || "AX팀",
+    department: input.department?.trim() || "AX Team",
     status: "open",
     createdAt: new Date().toISOString()
   };
@@ -371,6 +455,13 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [batch.id, batch.title, batch.memo ?? null, batch.department, batch.status, batch.createdAt, null]
     );
+    return batch;
+  }
+
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    store.orderBatches.unshift(batch);
+    writeLocalStore(store);
     return batch;
   }
 
@@ -423,6 +514,16 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
     return updated;
   }
 
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    const index = store.orderBatches.findIndex((entry) => entry.id === batchId);
+    if (index >= 0) {
+      store.orderBatches[index] = updated;
+      writeLocalStore(store);
+    }
+    return updated;
+  }
+
   sqliteDb!.prepare(`
     UPDATE order_batches
     SET title = @title, memo = @memo, department = @department, status = @status, closed_at = @closedAt
@@ -445,6 +546,18 @@ export async function deleteOrderBatch(batchId: string) {
     return Boolean(result);
   }
 
+  if (isLocalFallback()) {
+    const store = readLocalStore();
+    const nextBatches = store.orderBatches.filter((batch) => batch.id !== batchId);
+    const deleted = nextBatches.length !== store.orderBatches.length;
+    if (deleted) {
+      store.orderBatches = nextBatches;
+      store.orders = store.orders.map((order) => (order.batchId === batchId ? { ...order, batchId: undefined } : order));
+      writeLocalStore(store);
+    }
+    return deleted;
+  }
+
   const result = sqliteDb!.prepare("DELETE FROM order_batches WHERE id = ?").run(batchId);
   return result.changes > 0;
 }
@@ -455,6 +568,11 @@ async function listOrderBatches(status?: OrderBatchStatus) {
       ? await pgAll<OrderBatchRow>("SELECT * FROM order_batches WHERE status = $1 ORDER BY created_at DESC", [status])
       : await pgAll<OrderBatchRow>("SELECT * FROM order_batches ORDER BY created_at DESC");
     return rows.map(mapOrderBatchRow);
+  }
+
+  if (isLocalFallback()) {
+    const batches = [...readLocalStore().orderBatches].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return status ? batches.filter((batch) => batch.status === status) : batches;
   }
 
   if (status) {
