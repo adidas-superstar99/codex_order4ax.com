@@ -9,25 +9,12 @@ import { OrderCart } from "../components/OrderCart";
 import { SizeSelector } from "../components/SizeSelector";
 import type { Brand, CartItem, Menu, Order, OrderBatch, PopularMenuRow } from "../types";
 
-const brandHighlights: Record<Brand, { eyebrow: string; title: string; description: string }> = {
-  STARBUCKS: {
-    eyebrow: "Starbucks selection",
-    title: "자주 찾는 커피와 티 메뉴를 위쪽에 먼저 배치했습니다.",
-    description: "인기 메뉴를 빠르게 고르고, 나머지 전체 메뉴도 그대로 탐색할 수 있게 React 구조를 유지한 채 정리했습니다."
-  },
-  TWOSOME: {
-    eyebrow: "Twosome selection",
-    title: "투썸플레이스 메뉴도 같은 흐름으로 바로 주문할 수 있어요.",
-    description: "추천 고정 메뉴가 없는 경우에는 전체 메뉴 탐색에 집중하도록 구성했습니다."
-  }
-};
-
 const brandNames: Record<Brand, string> = {
   STARBUCKS: "스타벅스",
   TWOSOME: "투썸플레이스"
 };
 
-const statusSteps = ["주문 목록 선택", "메뉴 담기", "주문 제출", "관리자 취합"];
+const statusSteps = ["메뉴 취합 중", "주문 완료"];
 
 const featuredMenuNames = [
   "아이스카페아메리카노",
@@ -183,7 +170,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       .filter((group) => group.menus.length),
     [categories, visibleMenus]
   );
-  const heroCopy = brandHighlights[brand];
+  const completedStepCount = batch?.status === "closed" ? 2 : 1;
 
   useEffect(() => {
     if (!visibleMenusByCategory.length) {
@@ -323,7 +310,6 @@ export function OrderPage({ batchId }: { batchId: string }) {
         <div className="hero-copy">
           <p className="eyebrow">SAMOO AX 음료 주문</p>
           <h1>{batch?.title || "주문 목록을 불러오는 중입니다."}</h1>
-          <p className="hero-description">{heroCopy.title} {heroCopy.description}</p>
           <div className="hero-actions">
             <a className="text-link" href="/">
               <ArrowLeft size={18} />
@@ -343,20 +329,20 @@ export function OrderPage({ batchId }: { batchId: string }) {
         <div className="hero-meta-card">
           <div className="hero-meta-header">
             <span className="brand-chip">{brandNames[brand]}</span>
-            <span className="meta-hint">{heroCopy.eyebrow}</span>
           </div>
           <div className="batch-inline-meta">
             <span className="department-badge">{batch?.department || "AX팀"}</span>
-            <span className="batch-meta-text">
-              <MapPin size={14} />
-              {batch?.memo || "선택한 주문 목록에 맞춰 주문을 진행해 주세요."}
-            </span>
+            {batch?.memo ? (
+              <span className="batch-meta-text">
+                <MapPin size={14} />
+                {batch.memo}
+              </span>
+            ) : null}
           </div>
           <div className="hero-preview-panel">
             <div className="panel-title-row compact-preview-title">
               <div>
-                <p className="section-kicker">Live order preview</p>
-                <h2>주문 들어온 메뉴</h2>
+                <h2>주문 현황</h2>
               </div>
               <span className="pill-count">{totalOrderedQuantity}잔</span>
             </div>
@@ -374,9 +360,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                 ))}
               </div>
             ) : (
-              <div className="empty-state compact-empty-state">
-                아직 저장된 주문이 없어요. 첫 주문이 들어오면 이 자리에 메뉴 썸네일과 수량이 바로 표시됩니다.
-              </div>
+              <div className="empty-state compact-empty-state">아직 접수된 메뉴가 없습니다.</div>
             )}
           </div>
           <div className="hero-stats-grid single-stat-grid">
@@ -389,7 +373,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
           <div className="hero-progress">
             {statusSteps.map((step, index) => (
               <div className="progress-step" key={step}>
-                <span className={index < 3 ? "progress-dot active" : "progress-dot"} />
+                <span className={index < completedStepCount ? "progress-dot active" : "progress-dot"} />
                 <small>{step}</small>
               </div>
             ))}
@@ -402,9 +386,9 @@ export function OrderPage({ batchId }: { batchId: string }) {
           <div className="section-heading-row">
             <div>
               <p className="section-kicker">Menu directory</p>
-              <h2>브랜드별 전체 메뉴를 비교하고 바로 담기</h2>
+              <h2 className="menu-directory-title">MENU DIRECTORY</h2>
             </div>
-            <span className="section-count">{visibleMenus.length} items</span>
+            <span className="section-count">{visibleMenus.length}</span>
           </div>
 
           <div className="toolbar premium-toolbar">
@@ -424,9 +408,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
             <section className="featured-strip">
               <div className="section-heading-row compact">
                 <div>
-                  <p className="section-kicker">Priority picks</p>
                   <h3>인기 메뉴</h3>
-                  <p className="featured-strip-hint">요청하신 우선순서대로 최상단에 배치했습니다.</p>
                 </div>
               </div>
               <div className="featured-grid featured-grid-scroll">
@@ -447,9 +429,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
             <section className="featured-strip">
               <div className="section-heading-row compact">
                 <div>
-                  <p className="section-kicker">Live trend</p>
                   <h3>이번 주문 인기 메뉴</h3>
-                  <p className="featured-strip-hint">현재 선택한 주문 목록에서 많이 담긴 메뉴입니다.</p>
                 </div>
               </div>
               <div className="featured-grid">
@@ -470,9 +450,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
           <section className="featured-strip">
             <div className="section-heading-row compact">
               <div>
-                <p className="section-kicker">Menu dropdowns</p>
                 <h3>카테고리별 메뉴</h3>
-                <p className="featured-strip-hint">메뉴 수가 많아서 카테고리별로 펼쳐 보고 담을 수 있게 바꿨습니다.</p>
               </div>
             </div>
 
@@ -556,7 +534,6 @@ export function OrderPage({ batchId }: { batchId: string }) {
             <div className="panel-section panel-glass">
               <div className="panel-title-row">
                 <div>
-                  <p className="section-kicker">Saved check</p>
                   <h2>최근 저장된 주문</h2>
                 </div>
                 <CheckCircle2 size={18} />
@@ -575,12 +552,11 @@ export function OrderPage({ batchId }: { batchId: string }) {
                   </div>
                 ))}
               </div>
-              <p className="featured-strip-hint">이 기기에서 마지막으로 저장에 성공한 주문입니다. 같은 구성을 다음 주문에 바로 다시 불러올 수 있어요.</p>
             </div>
           ) : null}
 
           {statusMessage ? <p className="status-message premium-status">{statusMessage}</p> : null}
-          <button className="primary-button premium-submit" type="submit" disabled={isSubmitting || !batch || batch.status !== "open"}>
+          <button className="primary-button premium-submit page-submit-button" type="submit" disabled={isSubmitting || !batch || batch.status !== "open"}>
             <ShoppingBag size={18} />
             {isSubmitting ? "주문 제출 중" : `주문 제출${totalCartCount ? ` · ${totalCartCount}잔` : ""}`}
           </button>
@@ -615,7 +591,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <input min={1} type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value) || 1)} />
             </label>
             <CustomRequestInput value={customRequest} onChange={setCustomRequest} />
-            <button className="primary-button premium-submit" type="button" onClick={addToCart}>
+            <button className="primary-button premium-submit modal-submit-button" type="button" onClick={addToCart}>
               <ShoppingBag size={18} />
               장바구니에 담기
             </button>

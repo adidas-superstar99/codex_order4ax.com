@@ -27,10 +27,7 @@ export function OrderListPage() {
       <section className="hero-panel">
         <div className="hero-copy">
           <p className="eyebrow">SAMOO AX 음료 주문</p>
-          <h1>열려 있는 주문 목록에서 원하는 주문을 선택해 주세요.</h1>
-          <p className="hero-description">
-            관리자가 오픈한 주문만 이 화면에 보입니다. 주문을 선택하면 해당 주문 전용 페이지로 들어가서 바로 음료를 담을 수 있어요.
-          </p>
+          <h1>열려있는 주문 목록을 선택해 주세요</h1>
           <div className="hero-actions">
             <a className="hero-cta" href="#order-batch-list">
               주문 목록 보기
@@ -42,8 +39,7 @@ export function OrderListPage() {
 
         <div className="hero-meta-card">
           <div className="hero-meta-header">
-            <span className="brand-chip">AX팀 기본</span>
-            <span className="meta-hint">Open order batches</span>
+            <span className="brand-chip order-list-chip">주문부서 : AX팀</span>
           </div>
           <div className="hero-stats-grid">
             <div className="stat-card glow-card">
@@ -63,10 +59,8 @@ export function OrderListPage() {
       <section className="main-panel main-panel-premium" id="order-batch-list">
         <div className="section-heading-row">
           <div>
-            <p className="section-kicker">Order batches</p>
             <h2>주문 목록</h2>
           </div>
-          <span className="section-count">{batches.length} open</span>
         </div>
 
         {message ? <p className="status-message premium-status">{message}</p> : null}
@@ -77,12 +71,10 @@ export function OrderListPage() {
               <a className="batch-card" href={`/order/${batch.id}`} key={batch.id}>
                 <div className="batch-card-header">
                   <div>
-                    <p className="section-kicker">Open now</p>
                     <h3>{batch.title}</h3>
                   </div>
                   <span className="department-badge">{batch.department}</span>
                 </div>
-                <p className="batch-card-copy">{batch.memo || "관리자가 열어 둔 주문입니다. 들어가서 원하는 메뉴를 바로 담아 주세요."}</p>
                 <div className="batch-card-footer">
                   <span>{formatCreatedAt(batch.createdAt)} 개설</span>
                   <strong>
@@ -94,9 +86,7 @@ export function OrderListPage() {
             ))}
           </div>
         ) : (
-          <div className="empty-state">
-            현재 열려 있는 주문 목록이 없어요. 관리자가 주문을 열면 이 화면에 바로 나타납니다.
-          </div>
+          <div className="empty-state">현재 열려 있는 주문 목록이 없습니다.</div>
         )}
       </section>
     </main>

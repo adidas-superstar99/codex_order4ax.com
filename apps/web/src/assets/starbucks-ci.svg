@@ -1,0 +1,9 @@
+<svg width="240" height="140" viewBox="0 0 240 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="240" height="140" rx="28" fill="#0F172A"/>
+  <rect x="14" y="14" width="212" height="112" rx="22" fill="#0A3D2A"/>
+  <circle cx="70" cy="70" r="34" fill="#F8FAFC"/>
+  <circle cx="70" cy="70" r="28" fill="#00704A"/>
+  <path d="M63.5 63.5C66 58.3 74.6 57.4 77.3 62.4C78.9 65.3 78 69.1 75 71.1L71 73.8V81H66V71.2L62.7 68.8C60.6 67.2 60.1 64.9 61 63.1C61.5 62.1 62.7 61.7 63.5 63.5Z" fill="#F8FAFC"/>
+  <text x="122" y="62" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="22" font-weight="700">STARBUCKS</text>
+  <text x="122" y="89" fill="#9AE6B4" font-family="Arial, sans-serif" font-size="14" font-weight="700">COFFEE</text>
+</svg>

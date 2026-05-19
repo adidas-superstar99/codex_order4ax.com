@@ -1,8 +1,10 @@
-﻿import type { Brand } from "../types";
+import starbucksCi from "../assets/starbucks-ci.svg";
+import twosomeCi from "../assets/twosome-ci.svg";
+import type { Brand } from "../types";
 
-const labels: Record<Brand, { name: string; hint: string }> = {
-  STARBUCKS: { name: "스타벅스", hint: "Coffee" },
-  TWOSOME: { name: "투썸플레이스", hint: "Dessert cafe" }
+const labels: Record<Brand, { name: string; image: string }> = {
+  STARBUCKS: { name: "스타벅스", image: starbucksCi },
+  TWOSOME: { name: "투썸플레이스", image: twosomeCi }
 };
 
 export function BrandTabs({ value, onChange }: { value: Brand; onChange: (brand: Brand) => void }) {
@@ -12,11 +14,11 @@ export function BrandTabs({ value, onChange }: { value: Brand; onChange: (brand:
         <button
           key={brand}
           type="button"
-          className={value === brand ? "active" : ""}
+          className={value === brand ? "active brand-segment-button" : "brand-segment-button"}
           onClick={() => onChange(brand)}
+          aria-label={labels[brand].name}
         >
-          <strong>{labels[brand].name}</strong>
-          <small>{labels[brand].hint}</small>
+          <img className="brand-segment-logo" src={labels[brand].image} alt={labels[brand].name} />
         </button>
       ))}
     </div>

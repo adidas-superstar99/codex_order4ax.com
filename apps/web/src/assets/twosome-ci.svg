@@ -1,0 +1,9 @@
+<svg width="240" height="140" viewBox="0 0 240 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="240" height="140" rx="28" fill="#0F172A"/>
+  <rect x="14" y="14" width="212" height="112" rx="22" fill="#5A1015"/>
+  <circle cx="70" cy="70" r="34" fill="#F8FAFC"/>
+  <circle cx="70" cy="70" r="28" fill="#A61E2D"/>
+  <path d="M58 81L68.6 54H71.6L82 81H76L73.9 75.2H66L63.9 81H58ZM67.8 70.7H72.2L70 63.8L67.8 70.7Z" fill="#F8FAFC"/>
+  <text x="122" y="60" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="20" font-weight="700">A TWOSOME</text>
+  <text x="122" y="87" fill="#FCA5A5" font-family="Arial, sans-serif" font-size="14" font-weight="700">PLACE</text>
+</svg>

@@ -28,7 +28,7 @@ export function MenuCard({ menu, onSelect }: { menu: Menu; onSelect: (menu: Menu
         </div>
         <button className="icon-text-button" type="button" onClick={() => onSelect(menu)}>
           <Plus size={18} />
-          옵션 고르기
+          담기
         </button>
       </div>
     </article>
