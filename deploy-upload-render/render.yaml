@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: deploy-upload-render
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm install --include=dev && npm install --no-save --workspace apps/web @rollup/rollup-linux-x64-gnu@4.60.4 && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
