@@ -5,6 +5,7 @@ import {
   adminHeaders,
   bulkUpdateStatus,
   createOrderBatch,
+  deleteOrderBatch,
   deleteAdminOrder,
   exportCsvUrl,
   fetchAdminOrderBatches,
@@ -106,6 +107,22 @@ export function AdminPage() {
       setMessage(batch.status === "open" ? "주문 목록을 마감했습니다." : "주문 목록을 다시 열었습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "주문 목록 상태 변경에 실패했습니다.");
+    }
+  }
+
+  async function removeBatch(batch: OrderBatch) {
+    const confirmed = window.confirm(`"${batch.title}" 주문 목록을 삭제할까요?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteOrderBatch(password, batch.id);
+      if (batchId === batch.id) {
+        setBatchId("");
+      }
+      await load();
+      setMessage("주문 목록을 삭제했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "주문 목록 삭제에 실패했습니다.");
     }
   }
 
@@ -239,6 +256,10 @@ export function AdminPage() {
                   </button>
                   <button className="secondary-button" type="button" onClick={() => toggleBatch(batch)}>
                     {batch.status === "open" ? "마감" : "다시 열기"}
+                  </button>
+                  <button className="secondary-button danger-button" type="button" onClick={() => removeBatch(batch)}>
+                    <Trash2 size={15} />
+                    삭제
                   </button>
                 </div>
               </article>

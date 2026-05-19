@@ -99,6 +99,20 @@ export async function updateOrderBatch(
   return response.json() as Promise<OrderBatch>;
 }
 
+export async function deleteOrderBatch(password: string, batchId: string) {
+  const response = await fetch(`/api/admin/order-batches/${batchId}`, {
+    method: "DELETE",
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "주문 목록 삭제에 실패했습니다." }));
+    throw new Error(error.message ?? "주문 목록 삭제에 실패했습니다.");
+  }
+
+  return response.json() as Promise<{ ok: true }>;
+}
+
 export async function fetchAdminOrders(
   password: string,
   params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }

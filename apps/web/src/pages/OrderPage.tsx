@@ -170,6 +170,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       })
       .filter((menu): menu is Menu & { orderedQuantity: number; ordererNames: string[] } => Boolean(menu));
   }, [liveOrderRows, menus]);
+  const shouldShowPopularMenus = brand === "STARBUCKS" && popularMenus.length > 0;
 
   const totalCartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const totalOrderedQuantity = useMemo(() => liveOrderRows.reduce((sum, item) => sum + item.quantity, 0), [liveOrderRows]);
@@ -359,7 +360,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
               </div>
               <span className="pill-count">{totalOrderedQuantity}잔</span>
             </div>
-            {popularMenus.length ? (
+            {shouldShowPopularMenus ? (
               <div className="hero-order-preview-list">
                 {popularMenus.map((menu) => (
                   <button className="hero-order-preview-item" key={menu.id} type="button" onClick={() => openMenu(menu)}>
@@ -442,7 +443,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
             </section>
           ) : null}
 
-          {popularMenus.length ? (
+          {shouldShowPopularMenus ? (
             <section className="featured-strip">
               <div className="section-heading-row compact">
                 <div>
