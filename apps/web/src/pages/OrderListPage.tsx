@@ -1,7 +1,9 @@
-import { ArrowRight, Clock3, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, Clock3, Layers3, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchPublicOrderBatches } from "../api";
 import type { OrderBatch } from "../types";
+
+const departmentTones = ["violet", "cyan", "amber", "emerald", "rose", "indigo"] as const;
 
 function formatCreatedAt(value: string) {
   return new Date(value).toLocaleString("ko-KR", {
@@ -12,15 +14,25 @@ function formatCreatedAt(value: string) {
   });
 }
 
+function getDepartmentTone(department: string) {
+  const source = department.trim() || "기타";
+  const seed = [...source].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return departmentTones[seed % departmentTones.length];
+}
+
 export function OrderListPage() {
   const [batches, setBatches] = useState<OrderBatch[]>([]);
   const [message, setMessage] = useState("");
-  const departmentSummary = batches.reduce<Record<string, number>>((acc, batch) => {
-    const key = batch.department || "기타";
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-  const summaryItems = Object.entries(departmentSummary).map(([department, count]) => `${department} 주문 ${count}건`);
+
+  const departmentSummary = useMemo(() => {
+    return batches.reduce<Record<string, number>>((acc, batch) => {
+      const key = batch.department || "기타";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [batches]);
+
+  const summaryEntries = Object.entries(departmentSummary);
 
   useEffect(() => {
     fetchPublicOrderBatches()
@@ -32,8 +44,11 @@ export function OrderListPage() {
     <main className="app-shell premium-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">SAMOO AX 음료 주문</p>
-          <h1>열려있는 주문 목록을 선택해 주세요</h1>
+          <p className="eyebrow">SAMOO AX 주문 허브</p>
+          <h1>지금 열려 있는 주문 목록을 한눈에 보고 바로 선택하세요.</h1>
+          <p className="hero-description">
+            부서별로 색을 달리해 구분하고, 각 주문 카드에서 바로 주문 화면으로 이동할 수 있게 정리했습니다.
+          </p>
           <div className="hero-actions">
             <a className="hero-cta" href="#order-batch-list">
               주문 목록 보기
@@ -49,15 +64,30 @@ export function OrderListPage() {
           </div>
           <div className="hero-stats-grid">
             <div className="stat-card glow-card">
-              <ShieldCheck size={18} />
-              <strong>{summaryItems.length ? summaryItems.join(" · ") : "열려 있는 주문 없음"}</strong>
-              <span>부서별 열려 있는 주문 현황</span>
+              <Layers3 size={18} />
+              <strong>{batches.length}개</strong>
+              <span>현재 열려 있는 주문 배치</span>
             </div>
             <div className="stat-card">
               <Clock3 size={18} />
               <strong>{batches[0] ? formatCreatedAt(batches[0].createdAt) : "-"}</strong>
-              <span>가장 최근 개설</span>
+              <span>가장 최근 생성된 주문</span>
             </div>
+          </div>
+          <div className="department-summary-row">
+            {summaryEntries.length ? (
+              summaryEntries.map(([department, count]) => (
+                <span
+                  className="department-summary-chip"
+                  data-tone={getDepartmentTone(department)}
+                  key={department}
+                >
+                  {department} {count}건
+                </span>
+              ))
+            ) : (
+              <div className="empty-state compact-empty-state">현재 열려 있는 주문이 없습니다.</div>
+            )}
           </div>
         </div>
       </section>
@@ -65,6 +95,7 @@ export function OrderListPage() {
       <section className="main-panel main-panel-premium" id="order-batch-list">
         <div className="section-heading-row">
           <div>
+            <p className="section-kicker">Open Batches</p>
             <h2>주문 목록</h2>
           </div>
         </div>
@@ -73,23 +104,41 @@ export function OrderListPage() {
 
         {batches.length ? (
           <div className="batch-grid">
-            {batches.map((batch) => (
-              <a className="batch-card" href={`/order/${batch.id}`} key={batch.id}>
-                <div className="batch-card-header">
-                  <div>
-                    <h3>{batch.title}</h3>
+            {batches.map((batch) => {
+              const tone = getDepartmentTone(batch.department || "기타");
+
+              return (
+                <a className="batch-card" data-tone={tone} href={`/order/${batch.id}`} key={batch.id}>
+                  <div className="batch-card-header">
+                    <div className="batch-card-copy">
+                      <span className="batch-card-kicker">공동 주문</span>
+                      <h3>{batch.title}</h3>
+                      <p className="batch-meta-text">선택하면 바로 주문 화면으로 이동합니다.</p>
+                    </div>
+                    <span className="department-badge" data-tone={tone}>{batch.department}</span>
                   </div>
-                  <span className="department-badge">{batch.department}</span>
-                </div>
-                <div className="batch-card-footer">
-                  <span>{formatCreatedAt(batch.createdAt)} 개설</span>
-                  <strong>
-                    주문하러 가기
-                    <ArrowRight size={16} />
-                  </strong>
-                </div>
-              </a>
-            ))}
+
+                  <div className="batch-inline-meta">
+                    <span className="batch-meta-text">
+                      <ShieldCheck size={16} />
+                      부서별 색상으로 구분
+                    </span>
+                    <span className="batch-meta-text">
+                      <Clock3 size={16} />
+                      {formatCreatedAt(batch.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="batch-card-footer">
+                    <span>{batch.department} 주문으로 이동</span>
+                    <strong>
+                      주문하러 가기
+                      <ArrowRight size={16} />
+                    </strong>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state">현재 열려 있는 주문 목록이 없습니다.</div>

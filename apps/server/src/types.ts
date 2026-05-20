@@ -1,9 +1,10 @@
-export type Brand = "STARBUCKS" | "TWOSOME";
+export type Brand = "STARBUCKS" | "TWOSOME" | "EMART";
 
 export type Menu = {
   id: string;
   brand: Brand;
   category: string;
+  subcategory?: string;
   name: string;
   imageUrl: string;
   sourceUrl: string;

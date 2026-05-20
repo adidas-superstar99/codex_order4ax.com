@@ -56,6 +56,38 @@ export async function fetchPopularMenus(params: { batchId?: string; brand?: Bran
   return response.json() as Promise<PopularMenuRow[]>;
 }
 
+export async function fetchMyOrders(params: { batchId: string; ordererName: string }) {
+  const url = new URL("/api/orders/mine", window.location.origin);
+  url.searchParams.set("batchId", params.batchId);
+  url.searchParams.set("ordererName", params.ordererName);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "내 주문을 불러오지 못했습니다." }));
+    throw new Error(error.message ?? "내 주문을 불러오지 못했습니다.");
+  }
+
+  return response.json() as Promise<Order[]>;
+}
+
+export async function cancelOwnOrder(payload: { orderId: string; batchId?: string; ordererName: string }) {
+  const response = await fetch(`/api/orders/${payload.orderId}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      batchId: payload.batchId,
+      ordererName: payload.ordererName
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "주문 삭제에 실패했습니다." }));
+    throw new Error(error.message ?? "주문 삭제에 실패했습니다.");
+  }
+
+  return response.json() as Promise<{ ok: true }>;
+}
+
 export async function fetchAdminOrderBatches(password: string) {
   const response = await fetch("/api/admin/order-batches", { headers: adminHeaders(password) });
   if (!response.ok) throw new Error("관리자 주문 목록을 불러오지 못했습니다.");

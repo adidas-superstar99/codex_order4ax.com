@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { ordersToCsv } from "../services/exportService.js";
 import {
   bulkUpdateOrderStatus,
+  cancelOwnOrder,
   createOrder,
   deleteOrder,
   isOrderStatus,
@@ -36,6 +37,45 @@ publicOrdersRouter.get("/popular", async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(500).json({ message });
+  }
+});
+
+publicOrdersRouter.get("/mine", async (req: Request, res: Response) => {
+  try {
+    const batchId = typeof req.query.batchId === "string" ? req.query.batchId : undefined;
+    const ordererName = typeof req.query.ordererName === "string" ? req.query.ordererName.trim() : "";
+
+    if (!batchId) {
+      res.status(400).json({ message: "BATCH_REQUIRED" });
+      return;
+    }
+
+    if (!ordererName) {
+      res.status(400).json({ message: "ORDERER_NAME_REQUIRED" });
+      return;
+    }
+
+    res.json(await listOrders({ batchId, ordererName }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(500).json({ message });
+  }
+});
+
+publicOrdersRouter.post("/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const ordererName = String(req.body.ordererName ?? "").trim();
+    const batchId = typeof req.body.batchId === "string" ? req.body.batchId : undefined;
+
+    if (!ordererName) {
+      res.status(400).json({ message: "ORDERER_NAME_REQUIRED" });
+      return;
+    }
+
+    res.json(await cancelOwnOrder({ orderId: req.params.id, batchId, ordererName }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(400).json({ message });
   }
 });
 

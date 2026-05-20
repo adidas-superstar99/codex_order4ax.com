@@ -2,7 +2,8 @@ import type { SummaryRow } from "../types";
 
 const brandLabels: Record<SummaryRow["brand"], string> = {
   STARBUCKS: "스타벅스",
-  TWOSOME: "투썸플레이스"
+  TWOSOME: "투썸플레이스",
+  EMART: "이마트"
 };
 
 export function OrderSummaryTable({ rows }: { rows: SummaryRow[] }) {
@@ -16,7 +17,7 @@ export function OrderSummaryTable({ rows }: { rows: SummaryRow[] }) {
             <th>브랜드</th>
             <th>카테고리</th>
             <th>메뉴</th>
-            <th>사이즈</th>
+            <th>옵션</th>
             <th>수량</th>
             <th>요청사항</th>
           </tr>

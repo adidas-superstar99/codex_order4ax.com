@@ -7,5 +7,7 @@ dist/
 *.tsbuildinfo
 tools/*.log
 data/local-store.json
+apps/server/data/local-store.json
+.codex-logs/
 server-run.log
 server-run.err.log

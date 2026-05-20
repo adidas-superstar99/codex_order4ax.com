@@ -1,5 +1,15 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
-import type { CartItem } from "../types";
+import type { Brand, CartItem } from "../types";
+
+const brandLabels: Record<Brand, string> = {
+  STARBUCKS: "스타벅스",
+  TWOSOME: "투썸플레이스",
+  EMART: "이마트"
+};
+
+function getQuantityUnit(brand: Brand) {
+  return brand === "EMART" ? "개" : "잔";
+}
 
 export function OrderCart({
   items,
@@ -11,7 +21,7 @@ export function OrderCart({
   onQuantityChange: (localId: string, quantity: number) => void;
 }) {
   if (!items.length) {
-    return <div className="cart-empty">선택한 음료가 아직 없습니다.</div>;
+    return <div className="cart-empty">선택한 메뉴가 아직 없습니다.</div>;
   }
 
   return (
@@ -21,7 +31,8 @@ export function OrderCart({
           <div>
             <strong>{item.menuName}</strong>
             <span>
-              {item.brand} · {item.size}
+              {brandLabels[item.brand]} · {item.size} · {item.quantity}
+              {getQuantityUnit(item.brand)}
             </span>
             {item.customRequest ? <p>{item.customRequest}</p> : null}
           </div>

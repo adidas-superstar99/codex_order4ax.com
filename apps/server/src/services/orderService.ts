@@ -177,7 +177,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return (await getOrderById(orderId))!;
 }
 
-export async function listOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus }): Promise<Order[]> {
+export async function listOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus; ordererName?: string }): Promise<Order[]> {
   const clauses: string[] = [];
   const values: unknown[] = [];
 
@@ -192,6 +192,10 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
 
   if (filters.status) {
     clauses.push(`o.status = $${values.push(filters.status)}`);
+  }
+
+  if (filters.ordererName) {
+    clauses.push(`o.orderer_name = $${values.push(filters.ordererName)}`);
   }
 
   if (filters.brand) {
@@ -211,6 +215,7 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
       .filter((order) => {
         if (filters.batchId && order.batchId !== filters.batchId) return false;
         if (filters.status && order.status !== filters.status) return false;
+        if (filters.ordererName && order.ordererName !== filters.ordererName) return false;
         if (filters.date) {
           const range = getKoreanDateRange(filters.date);
           if (order.orderedAt < range.start || order.orderedAt >= range.end) return false;
@@ -229,12 +234,14 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
     sqliteParams.endDate = range.end;
   }
   if (filters.status) sqliteParams.status = filters.status;
+  if (filters.ordererName) sqliteParams.ordererName = filters.ordererName;
   if (filters.brand) sqliteParams.brand = filters.brand;
 
   const sqliteClauses: string[] = [];
   if (filters.batchId) sqliteClauses.push("o.batch_id = @batchId");
   if (filters.date) sqliteClauses.push("o.ordered_at >= @startDate AND o.ordered_at < @endDate");
   if (filters.status) sqliteClauses.push("o.status = @status");
+  if (filters.ordererName) sqliteClauses.push("o.orderer_name = @ordererName");
   if (filters.brand) sqliteClauses.push("EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.brand = @brand)");
   const sqliteWhere = sqliteClauses.length ? `WHERE ${sqliteClauses.join(" AND ")}` : "";
   const rows = sqliteDb!.prepare(`SELECT * FROM orders o ${sqliteWhere} ORDER BY o.ordered_at DESC`).all(sqliteParams) as OrderRow[];
@@ -296,6 +303,39 @@ export async function deleteOrder(orderId: string) {
   sqliteDb!.prepare("DELETE FROM order_items WHERE order_id = ?").run(orderId);
   const result = sqliteDb!.prepare("DELETE FROM orders WHERE id = ?").run(orderId);
   return result.changes > 0;
+}
+
+export async function cancelOwnOrder(input: { orderId: string; batchId?: string; ordererName: string }) {
+  const order = await getOrderById(input.orderId);
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
+  }
+
+  if (order.ordererName.trim() !== input.ordererName.trim()) {
+    throw new Error("ORDER_OWNER_MISMATCH");
+  }
+
+  if (input.batchId && order.batchId !== input.batchId) {
+    throw new Error("ORDER_BATCH_MISMATCH");
+  }
+
+  if (order.status !== "submitted") {
+    throw new Error("ORDER_ALREADY_PROCESSED");
+  }
+
+  if (order.batchId) {
+    const batch = await getOrderBatchById(order.batchId);
+    if (!batch || batch.status !== "open") {
+      throw new Error("BATCH_CLOSED");
+    }
+  }
+
+  const deleted = await deleteOrder(input.orderId);
+  if (!deleted) {
+    throw new Error("ORDER_DELETE_FAILED");
+  }
+
+  return { ok: true };
 }
 
 export async function summarizeOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus }) {

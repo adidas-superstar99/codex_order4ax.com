@@ -10,9 +10,35 @@ const candidateDataPaths = [
   join(__dirname, "../data/menu-data.json")
 ];
 const menuDataPath = candidateDataPaths.find((path) => existsSync(path)) ?? candidateDataPaths[0];
-const menus = JSON.parse(readFileSync(menuDataPath, "utf-8").replace(/^\uFEFF/, "")) as Menu[];
+
+function readMenus() {
+  const rawMenus = JSON.parse(readFileSync(menuDataPath, "utf-8").replace(/^\uFEFF/, "")) as Array<
+    Omit<Menu, "availableSizes"> & { availableSizes?: string[] | string | null }
+  >;
+
+  return rawMenus.map((menu) => ({
+    ...menu,
+    availableSizes: normalizeAvailableSizes(menu.availableSizes)
+  }));
+}
+
+function normalizeAvailableSizes(value: string[] | string | null | undefined) {
+  if (Array.isArray(value)) {
+    return value.length ? value : ["단일"];
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) return ["단일"];
+    if (normalized.toLowerCase() === "one size") return ["단일"];
+    return [normalized];
+  }
+
+  return ["단일"];
+}
 
 export function listMenus(filters: { brand?: Brand; category?: string; query?: string }) {
+  const menus = readMenus();
   const query = filters.query?.trim().toLowerCase();
 
   return menus.filter((menu) => {
@@ -24,5 +50,6 @@ export function listMenus(filters: { brand?: Brand; category?: string; query?: s
 }
 
 export function getMenu(menuId: string) {
+  const menus = readMenus();
   return menus.find((menu) => menu.id === menuId);
 }

@@ -1,11 +1,12 @@
 import coffeebeanCi from "../assets/coffeebean-ci.png";
+import ediyaCi from "../assets/ediya-ci.png";
 import emartCi from "../assets/emart-ci.png";
 import starbucksCi from "../assets/starbucks-ci.png";
 import twosomeCi from "../assets/twosome-ci.png";
 import type { Brand } from "../types";
 
 type BrandTab = {
-  id: Brand | "COFFEE_BEAN" | "EMART";
+  id: Brand | "COFFEE_BEAN" | "EDIYA";
   name: string;
   image: string;
   enabled: boolean;
@@ -15,8 +16,9 @@ type BrandTab = {
 const tabs: BrandTab[] = [
   { id: "STARBUCKS", name: "스타벅스", image: starbucksCi, enabled: true, activeBrand: "STARBUCKS" },
   { id: "TWOSOME", name: "투썸플레이스", image: twosomeCi, enabled: true, activeBrand: "TWOSOME" },
+  { id: "EMART", name: "이마트", image: emartCi, enabled: true, activeBrand: "EMART" },
   { id: "COFFEE_BEAN", name: "커피빈", image: coffeebeanCi, enabled: false },
-  { id: "EMART", name: "이마트", image: emartCi, enabled: false }
+  { id: "EDIYA", name: "이디야", image: ediyaCi, enabled: false }
 ];
 
 export function BrandTabs({ value, onChange }: { value: Brand; onChange: (brand: Brand) => void }) {

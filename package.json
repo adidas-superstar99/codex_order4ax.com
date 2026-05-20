@@ -14,7 +14,8 @@
     "dev": "concurrently \"npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
     "build": "npm run build --workspace apps/server && npm run build --workspace apps/web",
     "start": "npm run start --workspace apps/server",
-    "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web"
+    "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
+    "sync:emart": "node scripts/fetch-emart-snacks.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

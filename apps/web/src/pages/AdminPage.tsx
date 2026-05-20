@@ -5,8 +5,8 @@ import {
   adminHeaders,
   bulkUpdateStatus,
   createOrderBatch,
-  deleteOrderBatch,
   deleteAdminOrder,
+  deleteOrderBatch,
   exportCsvUrl,
   fetchAdminOrderBatches,
   fetchAdminOrders,
@@ -18,7 +18,7 @@ import { OrderSummaryTable } from "../components/OrderSummaryTable";
 import type { Brand, Order, OrderBatch, OrderStatus, SummaryRow } from "../types";
 
 const statuses: Array<OrderStatus | "ALL"> = ["ALL", "submitted", "confirmed", "ordered", "completed", "cancelled"];
-const brands: Array<Brand | "ALL"> = ["ALL", "STARBUCKS", "TWOSOME"];
+const brands: Array<Brand | "ALL"> = ["ALL", "STARBUCKS", "TWOSOME", "EMART"];
 
 const statusLabels: Record<OrderStatus | "ALL", string> = {
   ALL: "전체 상태",
@@ -32,7 +32,8 @@ const statusLabels: Record<OrderStatus | "ALL", string> = {
 const brandLabels: Record<Brand | "ALL", string> = {
   ALL: "전체 브랜드",
   STARBUCKS: "스타벅스",
-  TWOSOME: "투썸플레이스"
+  TWOSOME: "투썸플레이스",
+  EMART: "이마트"
 };
 
 function getTodayInSeoul() {
@@ -42,6 +43,10 @@ function getTodayInSeoul() {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date());
+}
+
+function getQuantityUnit(brand: Brand) {
+  return brand === "EMART" ? "개" : "잔";
 }
 
 export function AdminPage() {
@@ -92,9 +97,9 @@ export function AdminPage() {
       await createOrderBatch(password, newBatch);
       setNewBatch({ title: "", department: "AX팀", memo: "" });
       await load();
-      setMessage("새 주문 목록을 만들었습니다.");
+      setMessage("새 주문 묶음을 만들었습니다.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "주문 목록 생성에 실패했습니다.");
+      setMessage(error instanceof Error ? error.message : "주문 묶음 생성에 실패했습니다.");
     }
   }
 
@@ -104,14 +109,14 @@ export function AdminPage() {
         status: batch.status === "open" ? "closed" : "open"
       });
       await load();
-      setMessage(batch.status === "open" ? "주문 목록을 마감했습니다." : "주문 목록을 다시 열었습니다.");
+      setMessage(batch.status === "open" ? "주문 묶음을 마감했습니다." : "주문 묶음을 다시 열었습니다.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "주문 목록 상태 변경에 실패했습니다.");
+      setMessage(error instanceof Error ? error.message : "주문 묶음 상태 변경에 실패했습니다.");
     }
   }
 
   async function removeBatch(batch: OrderBatch) {
-    const confirmed = window.confirm(`"${batch.title}" 주문 목록을 삭제할까요?`);
+    const confirmed = window.confirm(`"${batch.title}" 주문 묶음을 삭제할까요?`);
     if (!confirmed) return;
 
     try {
@@ -120,9 +125,9 @@ export function AdminPage() {
         setBatchId("");
       }
       await load();
-      setMessage("주문 목록을 삭제했습니다.");
+      setMessage("주문 묶음을 삭제했습니다.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "주문 목록 삭제에 실패했습니다.");
+      setMessage(error instanceof Error ? error.message : "주문 묶음 삭제에 실패했습니다.");
     }
   }
 
@@ -167,7 +172,9 @@ export function AdminPage() {
   }
 
   async function downloadCsv() {
-    const response = await fetch(exportCsvUrl({ batchId: batchId || undefined, date, brand, status }), { headers: adminHeaders(password) });
+    const response = await fetch(exportCsvUrl({ batchId: batchId || undefined, date, brand, status }), {
+      headers: adminHeaders(password)
+    });
     if (!response.ok) {
       setMessage("CSV 다운로드에 실패했습니다.");
       return;
@@ -186,7 +193,7 @@ export function AdminPage() {
       <main className="admin-login">
         <form onSubmit={unlock}>
           <p className="eyebrow">Admin</p>
-          <h1>SAMOO AX 음료 주문 관리자</h1>
+          <h1>SAMOO AX 음료/간식 주문 관리자</h1>
           <label className="field">
             <span>관리자 비밀번호</span>
             <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
@@ -204,8 +211,8 @@ export function AdminPage() {
       <section className="order-header">
         <div>
           <p className="eyebrow">Admin dashboard</p>
-          <h1>SAMOO AX 음료 주문</h1>
-          <p>주문 목록을 생성하고 열림/마감을 관리한 뒤, 선택한 주문 목록 기준으로 실제 주문 현황을 취합할 수 있습니다.</p>
+          <h1>SAMOO AX 음료/간식 주문</h1>
+          <p>주문 묶음을 만들고, 브랜드별 주문과 집계를 한 화면에서 관리합니다.</p>
         </div>
         <a className="admin-link" href="/">주문 목록</a>
       </section>
@@ -215,7 +222,7 @@ export function AdminPage() {
           <div className="section-heading-row">
             <div>
               <p className="section-kicker">Batch manager</p>
-              <h2>주문 목록 관리</h2>
+              <h2>주문 묶음 관리</h2>
             </div>
             <span className="section-count">{batches.length} total</span>
           </div>
@@ -223,19 +230,31 @@ export function AdminPage() {
           <form className="batch-create-form" onSubmit={handleCreateBatch}>
             <label className="field">
               <span>주문 제목</span>
-              <input value={newBatch.title} onChange={(event) => setNewBatch({ ...newBatch, title: event.target.value })} placeholder="예: 월요일 오후 간식 주문" />
+              <input
+                value={newBatch.title}
+                onChange={(event) => setNewBatch({ ...newBatch, title: event.target.value })}
+                placeholder="예: 오후 간식 주문"
+              />
             </label>
             <label className="field">
               <span>부서명</span>
-              <input value={newBatch.department} onChange={(event) => setNewBatch({ ...newBatch, department: event.target.value })} placeholder="AX팀" />
+              <input
+                value={newBatch.department}
+                onChange={(event) => setNewBatch({ ...newBatch, department: event.target.value })}
+                placeholder="AX팀"
+              />
             </label>
             <label className="field">
               <span>메모</span>
-              <input value={newBatch.memo} onChange={(event) => setNewBatch({ ...newBatch, memo: event.target.value })} placeholder="주문 안내 메모" />
+              <input
+                value={newBatch.memo}
+                onChange={(event) => setNewBatch({ ...newBatch, memo: event.target.value })}
+                placeholder="주문 안내 메모"
+              />
             </label>
             <button className="primary-button" type="submit">
               <PlusCircle size={18} />
-              주문 목록 생성
+              주문 묶음 생성
             </button>
           </form>
 
@@ -252,7 +271,7 @@ export function AdminPage() {
                 <p className="batch-card-copy">{batch.memo || "메모 없음"}</p>
                 <div className="admin-batch-actions">
                   <button className="secondary-button" type="button" onClick={() => setBatchId(batch.id)}>
-                    이 주문 보기
+                    주문 보기
                   </button>
                   <button className="secondary-button" type="button" onClick={() => toggleBatch(batch)}>
                     {batch.status === "open" ? "마감" : "다시 열기"}
@@ -270,16 +289,16 @@ export function AdminPage() {
         <div className="dashboard-section">
           <section className="admin-toolbar">
             <label className="field compact">
-              <span>주문 목록</span>
+              <span>주문 묶음</span>
               <select value={batchId} onChange={(event) => setBatchId(event.target.value)}>
-                <option value="">전체 주문 목록</option>
+                <option value="">전체 주문 묶음</option>
                 {batches.map((batch) => (
                   <option key={batch.id} value={batch.id}>{batch.title}</option>
                 ))}
               </select>
             </label>
             <label className="field compact">
-              <span>주문 일자</span>
+              <span>주문 날짜</span>
               <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
             </label>
             <label className="field compact">
@@ -361,7 +380,8 @@ export function AdminPage() {
                     <ul>
                       {order.items.map((item) => (
                         <li key={item.id}>
-                          {brandLabels[item.brand]} · {item.menuName} · {item.size} · {item.quantity}잔
+                          {brandLabels[item.brand]} · {item.menuName} · {item.size} · {item.quantity}
+                          {getQuantityUnit(item.brand)}
                           {item.customRequest ? <em>{item.customRequest}</em> : null}
                         </li>
                       ))}

@@ -6,7 +6,18 @@ import { OrderSummaryTable } from "../components/OrderSummaryTable";
 import type { Brand, Order, OrderStatus, SummaryRow } from "../types";
 
 const statuses: Array<OrderStatus | "ALL"> = ["ALL", "submitted", "confirmed", "ordered", "completed", "cancelled"];
-const brands: Array<Brand | "ALL"> = ["ALL", "STARBUCKS", "TWOSOME"];
+const brands: Array<Brand | "ALL"> = ["ALL", "STARBUCKS", "TWOSOME", "EMART"];
+
+const brandLabels: Record<Brand | "ALL", string> = {
+  ALL: "전체",
+  STARBUCKS: "스타벅스",
+  TWOSOME: "투썸플레이스",
+  EMART: "이마트"
+};
+
+function getQuantityUnit(brand: Brand) {
+  return brand === "EMART" ? "개" : "잔";
+}
 
 export function AdminPage() {
   const [password, setPassword] = useState(() => window.localStorage.getItem("adminPassword") ?? "");
@@ -103,7 +114,7 @@ export function AdminPage() {
           <span>브랜드</span>
           <select value={brand} onChange={(event) => setBrand(event.target.value as Brand | "ALL")}>
             {brands.map((item) => (
-              <option key={item} value={item}>{item === "ALL" ? "전체" : item}</option>
+              <option key={item} value={item}>{brandLabels[item]}</option>
             ))}
           </select>
         </label>
@@ -157,7 +168,8 @@ export function AdminPage() {
                 <ul>
                   {order.items.map((item) => (
                     <li key={item.id}>
-                      {item.brand} · {item.menuName} · {item.size} · {item.quantity}잔
+                      {brandLabels[item.brand]} · {item.menuName} · {item.size} · {item.quantity}
+                      {getQuantityUnit(item.brand)}
                       {item.customRequest ? <em>{item.customRequest}</em> : null}
                     </li>
                   ))}

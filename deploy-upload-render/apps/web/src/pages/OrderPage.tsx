@@ -9,11 +9,16 @@ import { OrderCart } from "../components/OrderCart";
 import { SizeSelector } from "../components/SizeSelector";
 import type { Brand, CartItem, Menu } from "../types";
 
+function getMenuCategoryLabel(menu: Menu) {
+  return menu.subcategory ? `${menu.category} / ${menu.subcategory}` : menu.category;
+}
+
 export function OrderPage() {
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
   const [menus, setMenus] = useState<Menu[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ALL");
+  const [subcategory, setSubcategory] = useState("ALL");
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -30,14 +35,28 @@ export function OrderPage() {
   }, [brand]);
 
   const categories = useMemo(() => ["ALL", ...new Set(menus.map((menu) => menu.category))], [menus]);
+  const subcategories = useMemo(() => {
+    if (category === "ALL") return ["ALL"];
+    return [
+      "ALL",
+      ...new Set(
+        menus
+          .filter((menu) => menu.category === category)
+          .map((menu) => menu.subcategory)
+          .filter((value): value is string => Boolean(value))
+      )
+    ];
+  }, [category, menus]);
+
   const visibleMenus = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return menus.filter((menu) => {
       if (category !== "ALL" && menu.category !== category) return false;
+      if (subcategory !== "ALL" && menu.subcategory !== subcategory) return false;
       if (normalized && !menu.name.toLowerCase().includes(normalized)) return false;
       return true;
     });
-  }, [category, menus, query]);
+  }, [category, menus, query, subcategory]);
 
   function openMenu(menu: Menu) {
     setSelectedMenu(menu);
@@ -55,7 +74,7 @@ export function OrderPage() {
         brand: selectedMenu.brand,
         menuId: selectedMenu.id,
         menuName: selectedMenu.name,
-        category: selectedMenu.category,
+        category: getMenuCategoryLabel(selectedMenu),
         size: selectedSize,
         quantity,
         customRequest: customRequest.trim() || undefined
@@ -74,7 +93,7 @@ export function OrderPage() {
     }
 
     if (!cart.length) {
-      setStatusMessage("장바구니에 음료를 담아 주세요.");
+      setStatusMessage("장바구니에 메뉴를 담아 주세요.");
       return;
     }
 
@@ -83,7 +102,7 @@ export function OrderPage() {
       await createOrder({ ...form, items: cart });
       setCart([]);
       setForm({ ordererName: "", team: "", contact: "", memo: "" });
-      setStatusMessage("주문이 제출되었습니다.");
+      setStatusMessage("주문을 제출했습니다.");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "주문 저장에 실패했습니다.");
     } finally {
@@ -95,9 +114,9 @@ export function OrderPage() {
     <main className="app-shell">
       <section className="order-header">
         <div>
-          <p className="eyebrow">Beverage order</p>
-          <h1>음료 주문 취합</h1>
-          <p>브랜드와 메뉴를 골라 장바구니에 담고 한 번에 제출하세요.</p>
+          <p className="eyebrow">Snack and beverage order</p>
+          <h1>음료/간식 주문 취합</h1>
+          <p>브랜드와 카테고리를 선택해 장바구니에 담고 한 번에 제출하세요.</p>
         </div>
         <a className="admin-link" href="/admin">관리자</a>
       </section>
@@ -108,10 +127,14 @@ export function OrderPage() {
             <BrandTabs value={brand} onChange={(nextBrand) => {
               setBrand(nextBrand);
               setCategory("ALL");
+              setSubcategory("ALL");
             }} />
             <div className="filters">
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="메뉴명 검색" />
-              <select value={category} onChange={(event) => setCategory(event.target.value)}>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="상품명 검색" />
+              <select value={category} onChange={(event) => {
+                setCategory(event.target.value);
+                setSubcategory("ALL");
+              }}>
                 {categories.map((item) => (
                   <option key={item} value={item}>
                     {item === "ALL" ? "전체 카테고리" : item}
@@ -120,6 +143,22 @@ export function OrderPage() {
               </select>
             </div>
           </div>
+
+          {brand === "EMART" && subcategories.length > 1 ? (
+            <div className="category-pills">
+              {subcategories.map((item) => (
+                <button
+                  key={item}
+                  className={subcategory === item ? "active" : ""}
+                  type="button"
+                  onClick={() => setSubcategory(item)}
+                >
+                  {item === "ALL" ? "전체" : item}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <MenuGrid menus={visibleMenus} onSelect={openMenu} />
         </section>
 
@@ -139,7 +178,7 @@ export function OrderPage() {
               <input value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value })} />
             </label>
             <label className="field">
-              <span>수령 메모</span>
+              <span>메모</span>
               <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} />
             </label>
           </div>
@@ -175,11 +214,13 @@ export function OrderPage() {
             </button>
             <img src={selectedMenu.imageUrl} alt="" />
             <h2 id="menu-modal-title">{selectedMenu.name}</h2>
-            <p>{selectedMenu.category}</p>
-            <SizeSelector sizes={selectedMenu.availableSizes} value={selectedSize} onChange={setSelectedSize} />
+            <p>{getMenuCategoryLabel(selectedMenu)}</p>
+            {selectedMenu.availableSizes.length > 1 ? (
+              <SizeSelector sizes={selectedMenu.availableSizes} value={selectedSize} onChange={setSelectedSize} />
+            ) : null}
             <label className="field">
               <span>수량</span>
-              <input min={1} type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} />
+              <input min={1} type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value) || 1)} />
             </label>
             <CustomRequestInput value={customRequest} onChange={setCustomRequest} />
             <button className="primary-button" type="button" onClick={addToCart}>
