@@ -41,6 +41,7 @@ const preferredFeaturedMenuNames = [
   "아이스 카페 라테",
   "카페 라테",
   "마닐라 크림 콜드 브루",
+  "바닐라 크림 콜드 브루",
   "콜드 브루",
   "아이스 자몽 허니 블랙 티",
   "자몽 허니 블랙 티",
@@ -329,7 +330,17 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
   function openCheckoutModal() {
     if (!cart.length) {
+      if (recentPreset && selectedRecentItems.length) {
+        setForm(recentPreset.form);
+        setCart(cloneCartItems(selectedRecentItems));
+        setCheckoutErrors({});
+        setStatusMessage("선택한 최근 주문 메뉴를 장바구니에 담았습니다.");
+        setIsCheckoutOpen(true);
+        return;
+      }
+
       setStatusMessage("메뉴를 먼저 담아주세요.");
+      setIsCheckoutOpen(true);
       return;
     }
 
