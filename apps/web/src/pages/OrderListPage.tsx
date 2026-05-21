@@ -45,7 +45,7 @@ export function OrderListPage() {
       <section className="hero-panel">
         <div className="hero-copy">
           <p className="eyebrow">SAMOO AX 주문 허브</p>
-          <h1>지금 열려 있는 주문 목록을 한눈에 보고 바로 선택하세요.</h1>
+          <h1>주문 목록을 선택하세요</h1>
           <p className="hero-description">
             부서별로 색을 달리해 구분하고, 각 주문 카드에서 바로 주문 화면으로 이동할 수 있게 정리했습니다.
           </p>
@@ -92,7 +92,7 @@ export function OrderListPage() {
         </div>
       </section>
 
-      <section className="main-panel main-panel-premium" id="order-batch-list">
+      <section className="main-panel main-panel-premium order-batch-panel" id="order-batch-list">
         <div className="section-heading-row">
           <div>
             <p className="section-kicker">Open Batches</p>

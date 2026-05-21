@@ -35,6 +35,21 @@ type OrderFormState = {
   memo: string;
 };
 
+const preferredFeaturedMenuNames = [
+  "아이스 카페 아메리카노",
+  "카페 아메리카노",
+  "아이스 카페 라테",
+  "카페 라테",
+  "마닐라 크림 콜드 브루",
+  "콜드 브루",
+  "아이스 자몽 허니 블랙 티",
+  "자몽 허니 블랙 티",
+  "아이스 유자 민트 티",
+  "유자 민트 티",
+  "아이스 유스베리 티",
+  "유스베리 티"
+];
+
 type RecentOrderPreset = {
   savedAt: string;
   form: OrderFormState;
@@ -188,7 +203,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
   const featuredMenus = useMemo(() => {
     const menuMap = new Map(menus.map((menu) => [normalizeMenuName(menu.name), menu]));
-    return featuredMenuNames
+    return preferredFeaturedMenuNames
       .map((name) => menuMap.get(normalizeMenuName(name)))
       .filter((menu): menu is Menu => Boolean(menu));
   }, [menus]);
@@ -913,7 +928,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
             </div>
           ) : null}
 
-          {myOrders.length > 1 ? (
+          {false ? (
             <div className="panel-section panel-glass">
               <div className="panel-title-row">
                 <div>
