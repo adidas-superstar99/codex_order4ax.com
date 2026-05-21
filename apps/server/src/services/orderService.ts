@@ -424,6 +424,7 @@ export async function listPopularMenus(filters: { batchId?: string; date?: strin
     menuId: string;
     menuName: string;
     category: string;
+    size: string;
     quantity: number;
     ordererNames: string[];
   };
@@ -433,11 +434,12 @@ export async function listPopularMenus(filters: { batchId?: string; date?: strin
     if (order.status === "cancelled") continue;
 
     for (const item of order.items) {
-      const key = item.menuId;
+      const key = `${item.menuId}|${item.size}`;
       const group: PopularMenuGroup = groups.get(key) ?? {
         menuId: item.menuId,
         menuName: item.menuName,
         category: item.category,
+        size: item.size,
         quantity: 0,
         ordererNames: []
       };

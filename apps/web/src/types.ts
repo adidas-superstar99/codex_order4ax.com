@@ -63,6 +63,7 @@ export type PopularMenuRow = {
   menuId: string;
   menuName: string;
   category: string;
+  size: string;
   quantity: number;
   ordererNames: string[];
 };

@@ -221,9 +221,9 @@ export function OrderPage({ batchId }: { batchId: string }) {
         const menu = menus.find((item) => item.id === row.menuId)
           ?? menus.find((item) => normalizeMenuName(item.name) === normalizeMenuName(row.menuName) && item.category === row.category);
         if (!menu) return null;
-        return { ...menu, orderedQuantity: row.quantity, ordererNames: row.ordererNames };
+        return { ...menu, orderedQuantity: row.quantity, ordererNames: row.ordererNames, orderedSize: row.size };
       })
-      .filter((menu): menu is Menu & { orderedQuantity: number; ordererNames: string[] } => Boolean(menu));
+      .filter((menu): menu is Menu & { orderedQuantity: number; ordererNames: string[]; orderedSize: string } => Boolean(menu));
   }, [liveOrderRows, menus]);
 
   const visibleMenusByCategory = useMemo(() => {
@@ -697,7 +697,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                     <img src={menu.imageUrl} alt="" loading="lazy" />
                     <div>
                       <strong>{menu.name}</strong>
-                      <span>{menu.orderedQuantity}건 주문</span>
+                      <span>{menu.orderedQuantity}{getQuantityUnit(menu.brand)} · {menu.orderedSize}</span>
                       <small>{menu.ordererNames.join(", ")}</small>
                     </div>
                   </button>
@@ -775,7 +775,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                     <img src={menu.imageUrl} alt="" loading="lazy" />
                     <div>
                       <strong>{menu.name}</strong>
-                      <span>{getMenuCategoryLabel(menu)} · {menu.orderedQuantity}건</span>
+                      <span>{getMenuCategoryLabel(menu)} · {menu.orderedSize} · {menu.orderedQuantity}{getQuantityUnit(menu.brand)}</span>
                       <small>{menu.ordererNames.join(", ")}</small>
                     </div>
                   </button>
