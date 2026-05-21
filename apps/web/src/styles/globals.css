@@ -335,8 +335,8 @@ th,
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 360px);
+  gap: 28px;
   align-items: start;
 }
 
@@ -352,6 +352,7 @@ th,
   display: grid;
   gap: 20px;
   min-width: 0;
+  overflow-x: clip;
 }
 
 .section-heading-row.compact h3,
@@ -374,6 +375,12 @@ th,
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.premium-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  align-items: start;
 }
 
 .segmented,
@@ -399,9 +406,19 @@ textarea,
 
 .premium-segmented {
   flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
+}
+
+.brand-tabs-scroll,
+.featured-strip,
+.category-dropdown,
+.menu-grid,
+.featured-grid {
+  min-width: 0;
 }
 
 .segmented button,
@@ -432,7 +449,7 @@ textarea,
 
 .brand-segment-button {
   position: relative;
-  flex: 0 0 196px;
+  flex: 0 0 clamp(136px, 14vw, 196px);
   padding: 0;
   overflow: hidden;
   border: 1px solid transparent;
@@ -1451,7 +1468,7 @@ th {
   padding-left: 18px;
 }
 
-@media (max-width: 1450px) {
+@media (max-width: 1320px) {
   .layout {
     grid-template-columns: 1fr;
   }
@@ -1646,7 +1663,7 @@ th {
   }
 }
 
-@media (min-width: 1451px) {
+@media (min-width: 1321px) {
   .side-panel-premium {
     grid-template-columns: 1fr;
   }

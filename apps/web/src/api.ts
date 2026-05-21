@@ -67,7 +67,9 @@ export async function fetchMyOrders(params: { batchId: string; ordererName: stri
     throw new Error(error.message ?? "내 주문을 불러오지 못했습니다.");
   }
 
-  return response.json() as Promise<Order[]>;
+  const data = await response.json() as Order[] | Order | null;
+  if (!data) return [];
+  return Array.isArray(data) ? data : [data];
 }
 
 export async function cancelOwnOrder(payload: { orderId: string; batchId?: string; ordererName: string }) {

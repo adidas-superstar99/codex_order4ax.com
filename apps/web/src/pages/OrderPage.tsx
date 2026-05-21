@@ -94,6 +94,10 @@ function cloneCartItems(items: CartItem[]) {
   }));
 }
 
+function getRepresentativeBrand(items?: Array<{ brand: Brand }>) {
+  return items?.[0]?.brand;
+}
+
 export function OrderPage({ batchId }: { batchId: string }) {
   const [batch, setBatch] = useState<OrderBatch | null>(null);
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
@@ -167,7 +171,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       })
       .catch((error) => setStatusMessage(error.message));
 
-    fetchPopularMenus({ batchId, limit: 8 })
+    fetchPopularMenus({ batchId, brand, limit: 8 })
       .then(setLiveOrderRows)
       .catch(() => setLiveOrderRows([]));
   }, [batchId, brand]);
@@ -224,7 +228,16 @@ export function OrderPage({ batchId }: { batchId: string }) {
       : groupedMenus;
   }, [brand, categories, filteredMenus]);
 
-  const shouldShowPopularMenus = brand === "STARBUCKS" && popularMenus.length > 0;
+  const previewBrand = useMemo(
+    () =>
+      getRepresentativeBrand(cart)
+      ?? getRepresentativeBrand(selectedMenu ? [selectedMenu] : undefined)
+      ?? getRepresentativeBrand(myOrders[0]?.items)
+      ?? getRepresentativeBrand(recentReceipt?.items)
+      ?? brand,
+    [brand, cart, myOrders, recentReceipt, selectedMenu]
+  );
+  const shouldShowPopularMenus = popularMenus.length > 0;
   const totalCartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const selectedRecentItems = useMemo(
     () => recentPreset?.items.filter((item) => selectedRecentItemIds.includes(item.localId)) ?? [],
@@ -258,15 +271,6 @@ export function OrderPage({ batchId }: { batchId: string }) {
         setHasLoadedMyOrders(true);
       });
   }, [activeOrdererName, batchId]);
-
-  useEffect(() => {
-    if (!hasLoadedMyOrders) return;
-    if (myOrders.length > 0) return;
-    if (!recentReceipt) return;
-
-    window.localStorage.removeItem(getRecentReceiptKey(batchId));
-    setRecentReceipt(null);
-  }, [batchId, hasLoadedMyOrders, myOrders.length, recentReceipt]);
 
   useEffect(() => {
     if (!visibleMenusByCategory.length) {
@@ -419,7 +423,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       fetchMyOrders({ batchId, ordererName: targetOrder.ordererName })
         .then(setMyOrders)
         .catch(() => setMyOrders([]));
-      fetchPopularMenus({ batchId, limit: 8 })
+      fetchPopularMenus({ batchId, brand, limit: 8 })
         .then(setLiveOrderRows)
         .catch(() => undefined);
     } catch (error) {
@@ -465,7 +469,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       setRecentReceipt(null);
       setMyOrders([]);
       setHasLoadedMyOrders(true);
-      fetchPopularMenus({ batchId, limit: 8 })
+      fetchPopularMenus({ batchId, brand, limit: 8 })
         .then(setLiveOrderRows)
         .catch(() => undefined);
     } catch (error) {
@@ -602,7 +606,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
         })
         .catch(() => undefined);
       setStatusMessage("주문이 정상적으로 접수되었습니다.");
-      fetchPopularMenus({ batchId, limit: 8 })
+      fetchPopularMenus({ batchId, brand, limit: 8 })
         .then(setLiveOrderRows)
         .catch(() => undefined);
     } catch (error) {
@@ -636,7 +640,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
         <div className="hero-meta-card">
           <div className="hero-meta-header">
-            <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[brand]}`}</span>
+            <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[previewBrand]}`}</span>
           </div>
           <div className="hero-preview-panel">
             <div className="panel-title-row compact-preview-title">
@@ -876,7 +880,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
             />
           </div>
 
-          {recentReceipt && !myOrders.length && !hasLoadedMyOrders ? (
+          {recentReceipt && !myOrders.length ? (
             <div className="panel-section panel-glass">
               <div className="panel-title-row">
                 <div>
@@ -1011,7 +1015,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <X size={20} />
             </button>
             <div className="modal-copy">
-              <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[brand]}`}</span>
+              <span className="brand-chip hero-order-chip">{`${batch?.department || "AX팀"} ${brandNames[previewBrand]}`}</span>
               <h2 id="checkout-modal-title">주문자 정보</h2>
               <p>입력한 정보는 다음 주문에서도 자동으로 불러옵니다.</p>
             </div>
