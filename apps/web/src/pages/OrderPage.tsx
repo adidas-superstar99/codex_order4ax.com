@@ -114,6 +114,10 @@ function getRepresentativeBrand(items?: Array<{ brand: Brand }>) {
   return items?.[0]?.brand;
 }
 
+function formatOrderItemMeta(item: { brand: Brand; size: string; quantity: number }) {
+  return `${item.quantity}${getQuantityUnit(item.brand)} · ${item.size}`;
+}
+
 export function OrderPage({ batchId }: { batchId: string }) {
   const [batch, setBatch] = useState<OrderBatch | null>(null);
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
@@ -517,6 +521,18 @@ export function OrderPage({ batchId }: { batchId: string }) {
         </button>
       </div>
     );
+  }
+
+  function renderOrderItems(
+    items: Array<{ id?: string; localId?: string; menuId: string; menuName: string; size: string; quantity: number; brand: Brand; customRequest?: string }>
+  ) {
+    return items.map((item) => (
+      <div className="recent-order-item" key={item.id ?? item.localId ?? `${item.menuId}-${item.size}-${item.menuName}`}>
+        <strong>{item.menuName}</strong>
+        <span>{formatOrderItemMeta(item)}</span>
+        {item.customRequest ? <em className="recent-order-request">요청: {item.customRequest}</em> : null}
+      </div>
+    ));
   }
 
   function applyRecentOrder(mode: "replace" | "append" = "replace") {
@@ -928,14 +944,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                   제출한 주문 삭제
                 </button>
               </div>
-              <div className="recent-order-list">
-                {recentReceipt.items.map((item) => (
-                  <div className="recent-order-item" key={`${item.menuId}-${item.size}-${item.menuName}`}>
-                    <strong>{item.menuName}</strong>
-                    <span>{item.size} · {item.quantity}{getQuantityUnit(item.brand)}</span>
-                  </div>
-                ))}
-              </div>
+              <div className="recent-order-list">{renderOrderItems(recentReceipt.items)}</div>
             </div>
           ) : null}
 
@@ -963,14 +972,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                         주문 삭제
                       </button>
                     </div>
-                    <div className="recent-order-list">
-                      {order.items.map((item) => (
-                        <div className="recent-order-item" key={item.id}>
-                          <strong>{item.menuName}</strong>
-                          <span>{item.size} · {item.quantity}{getQuantityUnit(item.brand)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="recent-order-list">{renderOrderItems(order.items)}</div>
                   </div>
                 ))}
               </div>
@@ -1002,14 +1004,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
                         주문 삭제
                       </button>
                     </div>
-                    <div className="recent-order-list">
-                      {order.items.map((item) => (
-                        <div className="recent-order-item" key={item.id}>
-                          <strong>{item.menuName}</strong>
-                          <span>{item.size} · {item.quantity}{getQuantityUnit(item.brand)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="recent-order-list">{renderOrderItems(order.items)}</div>
                   </div>
                 ))}
               </div>
@@ -1065,6 +1060,17 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <span>메모</span>
               <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="공동 주문 메모가 있으면 적어 주세요" />
             </label>
+            <div className="checkout-preview">
+              <div className="panel-title-row compact-preview-title">
+                <div>
+                  <h2>이번에 주문할 메뉴</h2>
+                </div>
+                <span className="pill-count">{totalCartCount}</span>
+              </div>
+              <div className="recent-order-list">
+                {cart.length ? renderOrderItems(cart) : <div className="empty-state compact-empty-state">아직 담긴 메뉴가 없습니다.</div>}
+              </div>
+            </div>
             {recentPreset ? (
               <button className="secondary-button" type="button" onClick={() => applyRecentOrder("replace")}>
                 <History size={16} />

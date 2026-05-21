@@ -617,6 +617,11 @@ textarea {
   gap: 10px;
 }
 
+.checkout-preview {
+  display: grid;
+  gap: 10px;
+}
+
 .hero-order-preview-list,
 .my-order-list {
   max-height: min(42vh, 420px);
@@ -682,6 +687,13 @@ textarea {
 .recent-order-summary span {
   color: var(--text-secondary);
   font-size: 0.84rem;
+}
+
+.recent-order-request {
+  margin: 4px 0 0;
+  color: #f5d4ff;
+  font-size: 0.82rem;
+  font-style: normal;
 }
 
 .recent-order-summary {
