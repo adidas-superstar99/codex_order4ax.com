@@ -609,23 +609,78 @@ async function listOrderBatches(status?: OrderBatchStatus) {
     const rows = status
       ? await pgAll<OrderBatchRow>("SELECT * FROM order_batches WHERE status = $1 ORDER BY created_at DESC", [status])
       : await pgAll<OrderBatchRow>("SELECT * FROM order_batches ORDER BY created_at DESC");
-    return rows.map(mapOrderBatchRow);
+    return Promise.all(rows.map(async (row) => ({
+      ...mapOrderBatchRow(row),
+      activeBrand: await getBatchActiveBrand(row.id)
+    })));
   }
 
   if (isLocalFallback()) {
     const batches = [...readLocalStore().orderBatches].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return status ? batches.filter((batch) => batch.status === status) : batches;
+    const filtered = status ? batches.filter((batch) => batch.status === status) : batches;
+    return filtered.map((batch) => ({
+      ...batch,
+      activeBrand: getLocalBatchActiveBrand(batch.id)
+    }));
   }
 
   if (status) {
     const rows = sqliteDb!
       .prepare("SELECT * FROM order_batches WHERE status = ? ORDER BY created_at DESC")
       .all(status) as OrderBatchRow[];
-    return rows.map(mapOrderBatchRow);
+    return rows.map((row) => ({
+      ...mapOrderBatchRow(row),
+      activeBrand: getSqliteBatchActiveBrand(row.id)
+    }));
   }
 
   const rows = sqliteDb!.prepare("SELECT * FROM order_batches ORDER BY created_at DESC").all() as OrderBatchRow[];
-  return rows.map(mapOrderBatchRow);
+  return rows.map((row) => ({
+    ...mapOrderBatchRow(row),
+    activeBrand: getSqliteBatchActiveBrand(row.id)
+  }));
+}
+
+async function getBatchActiveBrand(batchId: string): Promise<Brand | undefined> {
+  if (isPostgres()) {
+    const row = await pgOne<{ brand: Brand }>(
+      `SELECT oi.brand
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.batch_id = $1 AND o.status != 'cancelled'
+       ORDER BY o.ordered_at ASC, oi.id ASC
+       LIMIT 1`,
+      [batchId]
+    );
+    return row?.brand;
+  }
+
+  if (isLocalFallback()) {
+    return getLocalBatchActiveBrand(batchId);
+  }
+
+  return getSqliteBatchActiveBrand(batchId);
+}
+
+function getLocalBatchActiveBrand(batchId: string): Brand | undefined {
+  const firstOrder = [...readLocalStore().orders]
+    .filter((order) => order.batchId === batchId && order.status !== "cancelled" && order.items.length)
+    .sort((a, b) => a.orderedAt.localeCompare(b.orderedAt))[0];
+  return firstOrder?.items[0]?.brand;
+}
+
+function getSqliteBatchActiveBrand(batchId: string): Brand | undefined {
+  const row = sqliteDb!
+    .prepare(
+      `SELECT oi.brand
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.batch_id = ? AND o.status != 'cancelled'
+       ORDER BY o.ordered_at ASC, oi.rowid ASC
+       LIMIT 1`
+    )
+    .get(batchId) as { brand: Brand } | undefined;
+  return row?.brand;
 }
 
 function getKoreanDateRange(date: string) {

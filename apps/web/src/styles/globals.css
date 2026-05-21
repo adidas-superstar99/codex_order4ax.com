@@ -72,6 +72,10 @@ img {
   gap: 24px;
 }
 
+.order-list-shell {
+  gap: 18px;
+}
+
 .hero-panel,
 .main-panel,
 .side-panel,
@@ -1124,12 +1128,55 @@ textarea {
 
 .batch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
 }
 
 .compact-batch-grid {
   margin-top: 18px;
+}
+
+.order-list-header-panel {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 4px 0;
+}
+
+.order-list-header-copy h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(2.3rem, 4vw, 3.5rem);
+  line-height: 1.02;
+}
+
+.mini-admin-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.mini-admin-link:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.order-list-heading {
+  align-items: center;
+}
+
+.order-list-grid {
+  align-items: stretch;
 }
 
 .batch-card {
@@ -1139,8 +1186,10 @@ textarea {
   padding: 18px;
   text-decoration: none;
   color: var(--text);
-  background: linear-gradient(180deg, rgba(27, 36, 58, 0.96), rgba(21, 29, 48, 0.92));
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(29, 39, 63, 0.98), rgba(20, 28, 45, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.22);
   box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
@@ -1154,12 +1203,18 @@ textarea {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 6px;
+  width: 8px;
   border-radius: 24px 0 0 24px;
   background: linear-gradient(180deg, var(--primary), var(--accent));
   opacity: 0.9;
 }
 
+.order-list-card {
+  min-height: 220px;
+  align-content: space-between;
+}
+
+.batch-card-topline,
 .batch-card-header,
 .batch-card-footer,
 .admin-batch-actions,
@@ -1174,6 +1229,10 @@ textarea {
   align-items: flex-start;
 }
 
+.batch-card-topline {
+  align-items: center;
+}
+
 .batch-card h3 {
   margin: 4px 0 0;
   font-size: 1.2rem;
@@ -1183,6 +1242,30 @@ textarea {
 .batch-card-footer span,
 .batch-meta-text {
   color: var(--text-secondary);
+}
+
+.batch-brand-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  min-height: 42px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 999px;
+  background: rgba(9, 14, 28, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.batch-brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .batch-card-kicker {
@@ -1283,6 +1366,42 @@ textarea {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(129, 140, 248, 0.2));
   border-color: rgba(165, 180, 252, 0.28);
   color: #e0e7ff;
+}
+
+.batch-card[data-tone="violet"] {
+  background:
+    radial-gradient(circle at top right, rgba(167, 139, 250, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(37, 28, 63, 0.98), rgba(23, 21, 46, 0.95));
+}
+
+.batch-card[data-tone="cyan"] {
+  background:
+    radial-gradient(circle at top right, rgba(103, 232, 249, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(22, 44, 61, 0.98), rgba(18, 28, 45, 0.95));
+}
+
+.batch-card[data-tone="amber"] {
+  background:
+    radial-gradient(circle at top right, rgba(253, 230, 138, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(57, 39, 23, 0.98), rgba(34, 27, 18, 0.95));
+}
+
+.batch-card[data-tone="emerald"] {
+  background:
+    radial-gradient(circle at top right, rgba(134, 239, 172, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(19, 51, 39, 0.98), rgba(16, 31, 28, 0.95));
+}
+
+.batch-card[data-tone="rose"] {
+  background:
+    radial-gradient(circle at top right, rgba(253, 164, 175, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(59, 28, 39, 0.98), rgba(32, 20, 33, 0.95));
+}
+
+.batch-card[data-tone="indigo"] {
+  background:
+    radial-gradient(circle at top right, rgba(165, 180, 252, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(29, 34, 68, 0.98), rgba(20, 24, 49, 0.95));
 }
 
 .quick-reorder-panel,
@@ -1592,6 +1711,7 @@ th {
   .premium-toolbar,
   .filters,
   .admin-toolbar,
+  .order-list-header-panel,
   .batch-card-header,
   .batch-card-footer,
   .admin-batch-actions,

@@ -8,6 +8,7 @@ export type OrderBatch = {
   memo?: string;
   department: string;
   status: OrderBatchStatus;
+  activeBrand?: Brand;
   createdAt: string;
   closedAt?: string;
 };
