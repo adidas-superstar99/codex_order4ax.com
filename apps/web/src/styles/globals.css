@@ -407,6 +407,11 @@ th,
   padding: 0 14px;
 }
 
+.sort-shell option {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
 .segmented,
 .size-selector,
 .search-shell,

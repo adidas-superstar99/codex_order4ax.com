@@ -51,6 +51,8 @@ const preferredFeaturedMenuNames = [
   "유스베리 티"
 ];
 
+const emartCategoryOrder = ["과자/쿠키/파이", "초콜릿/초코바", "사탕/캬라멜/껌", "견과류", "두유"];
+
 type RecentOrderPreset = {
   savedAt: string;
   form: OrderFormState;
@@ -224,7 +226,20 @@ export function OrderPage({ batchId }: { batchId: string }) {
       .catch(() => setLiveOrderRows([]));
   }, [batchId, brand]);
 
-  const categories = useMemo(() => [...new Set(menus.map((menu) => menu.category))], [menus]);
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(menus.map((menu) => menu.category))];
+    if (brand !== "EMART") return uniqueCategories;
+
+    return [...uniqueCategories].sort((left, right) => {
+      const leftIndex = emartCategoryOrder.indexOf(left);
+      const rightIndex = emartCategoryOrder.indexOf(right);
+
+      if (leftIndex === -1 && rightIndex === -1) return left.localeCompare(right, "ko");
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    });
+  }, [brand, menus]);
 
   const filteredMenus = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -767,14 +782,14 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <Search size={16} />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="상품명 또는 메뉴명으로 검색" />
             </div>
-            <label className="sort-shell">
+            {brand === "EMART" ? <label className="sort-shell">
               <span>정렬</span>
               <select value={menuSort} onChange={(event) => setMenuSort(event.target.value as MenuSortMode)}>
                 <option value="sales">판매량순</option>
                 <option value="name">상품명순</option>
                 <option value="default">기본순</option>
               </select>
-            </label>
+            </label> : null}
           </div>
 
           {brand === "STARBUCKS" && featuredMenus.length ? (
