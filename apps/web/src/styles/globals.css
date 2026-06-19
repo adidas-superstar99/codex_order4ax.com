@@ -388,6 +388,25 @@ th,
   gap: 14px;
 }
 
+.sort-shell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.sort-shell span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.sort-shell select {
+  width: min(180px, 100%);
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 .segmented,
 .size-selector,
 .search-shell,

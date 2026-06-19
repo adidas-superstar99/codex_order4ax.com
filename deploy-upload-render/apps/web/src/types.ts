@@ -8,6 +8,7 @@ export type Menu = {
   name: string;
   imageUrl: string;
   sourceUrl: string;
+  salesRank?: number;
   isNew?: boolean;
   isSeasonal?: boolean;
   availableSizes: string[];

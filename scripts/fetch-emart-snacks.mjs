@@ -18,22 +18,24 @@ const CATEGORY_CONFIG = [
   {
     category: "사탕/캬라멜/껌",
     url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000213385&shpp=ssgem",
-    subcategories: [
-      "하드캔디",
-      "캬라멜/소프트캔디",
-      "엿/달고나",
-      "껌",
-      "사탕선물세트"
-    ]
+    subcategories: ["하드캔디", "캬라멜/소프트캔디", "엿/달고나", "껌", "사탕선물세트"]
   },
   {
     category: "초콜릿/초코바",
     url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000213395&shpp=ssgem",
-    subcategories: [
-      "초콜릿",
-      "초코바",
-      "초콜릿선물세트"
-    ]
+    subcategories: ["초콜릿", "초코바", "초콜릿선물세트"]
+  },
+  {
+    category: "두유",
+    url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000213543&shpp=ssgem",
+    leafSubcategory: "두유",
+    expectedCount: 56
+  },
+  {
+    category: "견과류",
+    url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000215179&shpp=ssgem",
+    leafSubcategory: "견과류",
+    expectedCount: 74
   }
 ];
 
@@ -53,14 +55,14 @@ const FALLBACK_EMART_ITEMS = [
     category: "과자/쿠키/파이",
     subcategory: "파이/케익",
     itemId: "1000823770998",
-    itemNm: "노브랜드 크레이프롤 베리믹스 360g",
+    itemNm: "노브랜드 크레페프로 베리믹스 360g",
     itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000823770998&siteNo=6001&salestrNo=2037"
   },
   {
     category: "과자/쿠키/파이",
     subcategory: "일반과자",
     itemId: "1000036235321",
-    itemNm: "썬칩 치즈그라탕 204g",
+    itemNm: "자청 치즈그라탕 204g",
     itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000036235321&siteNo=6001&salestrNo=2037"
   },
   {
@@ -95,41 +97,43 @@ const FALLBACK_EMART_ITEMS = [
 
 async function main() {
   const [currentMenuData] = await Promise.all([readJson(OUTPUT_PATHS[0])]);
+  const currentEmartMenus = currentMenuData.filter((menu) => menu.brand === "EMART");
+  const fetchedEntryKeys = new Set();
 
   let emartMenus = [];
-  for (const categoryConfig of CATEGORY_CONFIG) {
+  const orderedCategoryConfig = [...CATEGORY_CONFIG].sort(
+    (left, right) => Number(Boolean(right.expectedCount)) - Number(Boolean(left.expectedCount))
+  );
+
+  for (const categoryConfig of orderedCategoryConfig) {
     try {
-      const rootHtml = await fetchHtml(categoryConfig.url);
-      const subcategoryUrls = extractSubcategoryUrls(rootHtml, categoryConfig.url, categoryConfig.subcategories);
+      const entries = await resolveCategoryEntries(categoryConfig);
 
-      for (const subcategory of categoryConfig.subcategories) {
-        const subcategoryUrl = subcategoryUrls.get(normalizeLabel(subcategory));
-        if (!subcategoryUrl) {
-          console.warn(`Skipping missing EMART subcategory URL: ${categoryConfig.category} > ${subcategory}`);
-          continue;
-        }
-
+      for (const entry of entries) {
         try {
-          const products = await fetchAllProducts(subcategoryUrl);
+          const products = await fetchAllProducts(entry.url);
+          const limitedProducts = entry.expectedCount ? products.slice(0, entry.expectedCount) : products;
           const timestamp = new Date().toISOString();
+          fetchedEntryKeys.add(getEntryKey(categoryConfig.category, entry.subcategory));
 
-          for (const product of products) {
+          limitedProducts.forEach((product, index) => {
             emartMenus.push({
-              id: `emart-${getDispCategoryId(subcategoryUrl)}-${slugify(subcategory)}-${product.itemId}`,
+              id: `emart-${getDispCategoryId(entry.url)}-${slugify(entry.subcategory)}-${product.itemId}`,
               brand: "EMART",
               category: categoryConfig.category,
-              subcategory,
+              subcategory: entry.subcategory,
               name: product.itemNm,
               imageUrl: product.imageUrl,
               sourceUrl: product.itemUrl,
+              salesRank: index + 1,
               availableSizes: ["단일"],
               createdAt: timestamp,
               updatedAt: timestamp
             });
-          }
+          });
         } catch (error) {
           console.warn(
-            `Skipping EMART subcategory after fetch failure: ${categoryConfig.category} > ${subcategory} (${error instanceof Error ? error.message : error})`
+            `Skipping EMART category entry after fetch failure: ${categoryConfig.category} > ${entry.subcategory} (${error instanceof Error ? error.message : error})`
           );
         }
 
@@ -148,24 +152,59 @@ async function main() {
   }
 
   const nonEmartMenus = currentMenuData.filter((menu) => menu.brand !== "EMART");
-  const mergedMenus = [...nonEmartMenus, ...dedupeMenus(emartMenus)];
+  const preservedEmartMenus = currentEmartMenus.filter(
+    (menu) => !fetchedEntryKeys.has(getEntryKey(menu.category, menu.subcategory ?? ""))
+  );
+  const mergedMenus = [...nonEmartMenus, ...dedupeMenus([...preservedEmartMenus, ...emartMenus])];
 
   for (const outputPath of OUTPUT_PATHS) {
     await writeFile(outputPath, `${JSON.stringify(mergedMenus, null, 2)}\n`, "utf8");
   }
 
-  console.log(`Updated EMART menus: ${emartMenus.length} items`);
+  console.log(`Updated EMART menus: ${dedupeMenus(emartMenus).length} items`);
 }
 
-async function fetchAllProducts(subcategoryUrl) {
+async function resolveCategoryEntries(categoryConfig) {
+  if (categoryConfig.leafSubcategory) {
+    const url = new URL(categoryConfig.url);
+    url.searchParams.set("shpp", "ssgem");
+    url.searchParams.set("sort", "sale");
+    return [{ subcategory: categoryConfig.leafSubcategory, url: url.toString(), expectedCount: categoryConfig.expectedCount }];
+  }
+
+  const rootHtml = await fetchHtml(categoryConfig.url);
+  const subcategoryUrls = extractSubcategoryUrls(rootHtml, categoryConfig.url, categoryConfig.subcategories);
+
+  return categoryConfig.subcategories
+    .map((subcategory) => {
+      const subcategoryUrl = subcategoryUrls.get(normalizeLabel(subcategory));
+      if (!subcategoryUrl) {
+        console.warn(`Skipping missing EMART subcategory URL: ${categoryConfig.category} > ${subcategory}`);
+        return null;
+      }
+
+      const url = new URL(subcategoryUrl);
+      url.searchParams.set("shpp", "ssgem");
+      url.searchParams.set("sort", "sale");
+      return { subcategory, url: url.toString() };
+    })
+    .filter(Boolean);
+}
+
+function getEntryKey(category, subcategory) {
+  return `${category}|${subcategory}`;
+}
+
+async function fetchAllProducts(categoryUrl) {
   const seenIds = new Set();
   const products = [];
 
   for (let page = 1; page <= 100; page += 1) {
-    const nextUrl = new URL(subcategoryUrl);
+    const nextUrl = new URL(categoryUrl);
     nextUrl.searchParams.set("page", String(page));
     nextUrl.searchParams.set("ctgListItemCount", "100");
     nextUrl.searchParams.set("shpp", "ssgem");
+    nextUrl.searchParams.set("sort", "sale");
 
     let html;
     try {
@@ -216,7 +255,7 @@ function parseProducts(html) {
   while ((jsonMatch = jsonRegex.exec(html)) !== null) {
     const rawJson = decodeHtml(jsonMatch[1]);
     const parsed = JSON.parse(rawJson);
-    if (!isSsgDeliveryProduct(parsed)) continue;
+    if (!isWeeklyDeliveryProduct(parsed)) continue;
 
     const image = [...images].reverse().find((entry) => entry.index < jsonMatch.index);
     products.push({
@@ -230,7 +269,7 @@ function parseProducts(html) {
   return products.filter((product) => product.itemId && product.itemNm && product.itemUrl && product.imageUrl);
 }
 
-function isSsgDeliveryProduct(parsed) {
+function isWeeklyDeliveryProduct(parsed) {
   const shppTypeCd = String(parsed.shppTypeCd ?? "");
   const shppTypeDtlCd = String(parsed.shppTypeDtlCd ?? "");
   const salestrNo = String(parsed.salestrNo ?? "");
@@ -265,6 +304,7 @@ function extractSubcategoryUrls(html, baseUrl, expectedSubcategories) {
       if (text.includes(normalizedExpected) && !links.has(normalizedExpected)) {
         const url = new URL(href, baseUrl);
         url.searchParams.set("shpp", "ssgem");
+        url.searchParams.set("sort", "sale");
         links.set(normalizedExpected, url.toString());
       }
     }
@@ -278,9 +318,12 @@ function dedupeMenus(menus) {
   for (const menu of menus) {
     map.set(menu.id, menu);
   }
-  return [...map.values()].sort((a, b) =>
-    `${a.category}|${a.subcategory}|${a.name}`.localeCompare(`${b.category}|${b.subcategory}|${b.name}`, "ko")
-  );
+  return [...map.values()].sort((a, b) => {
+    const categoryCompare = `${a.category}|${a.subcategory}`.localeCompare(`${b.category}|${b.subcategory}`, "ko");
+    if (categoryCompare !== 0) return categoryCompare;
+    return (a.salesRank ?? Number.MAX_SAFE_INTEGER) - (b.salesRank ?? Number.MAX_SAFE_INTEGER)
+      || a.name.localeCompare(b.name, "ko");
+  });
 }
 
 function getDispCategoryId(url) {
@@ -289,7 +332,7 @@ function getDispCategoryId(url) {
 
 function buildFallbackMenus() {
   const timestamp = new Date().toISOString();
-  return FALLBACK_EMART_ITEMS.map((item) => ({
+  return FALLBACK_EMART_ITEMS.map((item, index) => ({
     id: `emart-seed-${slugify(item.subcategory)}-${item.itemId}`,
     brand: "EMART",
     category: item.category,
@@ -297,6 +340,7 @@ function buildFallbackMenus() {
     name: item.itemNm,
     imageUrl: buildImageUrl(item.itemId),
     sourceUrl: item.itemUrl,
+    salesRank: index + 1,
     availableSizes: ["단일"],
     createdAt: timestamp,
     updatedAt: timestamp

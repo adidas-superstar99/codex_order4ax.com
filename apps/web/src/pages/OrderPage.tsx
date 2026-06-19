@@ -72,6 +72,8 @@ type CheckoutErrors = {
   team?: string;
 };
 
+type MenuSortMode = "sales" | "name" | "default";
+
 const defaultForm = (department = "AX팀"): OrderFormState => ({
   ordererName: "",
   team: department,
@@ -118,12 +120,38 @@ function formatOrderItemMeta(item: { brand: Brand; size: string; quantity: numbe
   return `${item.quantity}${getQuantityUnit(item.brand)} · ${item.size}`;
 }
 
+function sortMenusForDisplay(menus: Menu[], sortMode: MenuSortMode, highlightedSubcategory?: string) {
+  return [...menus].sort((left, right) => {
+    if (highlightedSubcategory) {
+      const leftPriority = left.subcategory === highlightedSubcategory ? 0 : 1;
+      const rightPriority = right.subcategory === highlightedSubcategory ? 0 : 1;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    }
+
+    if (sortMode === "sales") {
+      const leftRank = left.salesRank ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = right.salesRank ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) return leftRank - rightRank;
+    }
+
+    if (sortMode === "name") {
+      return left.name.localeCompare(right.name, "ko");
+    }
+
+    return `${left.category}|${left.subcategory ?? ""}|${left.name}`.localeCompare(
+      `${right.category}|${right.subcategory ?? ""}|${right.name}`,
+      "ko"
+    );
+  });
+}
+
 export function OrderPage({ batchId }: { batchId: string }) {
   const [batch, setBatch] = useState<OrderBatch | null>(null);
   const [brand, setBrand] = useState<Brand>("STARBUCKS");
   const [menus, setMenus] = useState<Menu[]>([]);
   const [liveOrderRows, setLiveOrderRows] = useState<PopularMenuRow[]>([]);
   const [query, setQuery] = useState("");
+  const [menuSort, setMenuSort] = useState<MenuSortMode>("sales");
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -739,6 +767,14 @@ export function OrderPage({ batchId }: { batchId: string }) {
               <Search size={16} />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="상품명 또는 메뉴명으로 검색" />
             </div>
+            <label className="sort-shell">
+              <span>정렬</span>
+              <select value={menuSort} onChange={(event) => setMenuSort(event.target.value as MenuSortMode)}>
+                <option value="sales">판매량순</option>
+                <option value="name">상품명순</option>
+                <option value="default">기본순</option>
+              </select>
+            </label>
           </div>
 
           {brand === "STARBUCKS" && featuredMenus.length ? (
@@ -794,15 +830,11 @@ export function OrderPage({ batchId }: { batchId: string }) {
             {visibleMenusByCategory.length ? visibleMenusByCategory.map((group) => {
               const isOpen = openCategories.includes(group.categoryName);
               const activeSubcategory = selectedSubcategories[group.categoryName] ?? "ALL";
-              const orderedMenus =
-                brand === "EMART" && activeSubcategory !== "ALL"
-                  ? [...group.menus].sort((left, right) => {
-                      const leftPriority = left.subcategory === activeSubcategory ? 0 : 1;
-                      const rightPriority = right.subcategory === activeSubcategory ? 0 : 1;
-                      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-                      return left.name.localeCompare(right.name, "ko");
-                    })
-                  : group.menus;
+              const orderedMenus = sortMenusForDisplay(
+                group.menus,
+                menuSort,
+                brand === "EMART" && activeSubcategory !== "ALL" ? activeSubcategory : undefined
+              );
 
               return (
                 <section className="category-dropdown" key={group.categoryName}>
