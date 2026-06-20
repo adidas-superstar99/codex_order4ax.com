@@ -37,7 +37,11 @@ adminOrderBatchesRouter.post("/", async (req: Request, res: Response) => {
   try {
     const batch = await createOrderBatch(req.body);
     const orderUrl = buildOrderUrl(req, batch.id);
-    const emailDelivery = await sendLinkMailSafely(batch, orderUrl);
+    queueLinkMail(batch, orderUrl);
+    const emailDelivery = {
+      ok: true,
+      message: "LINK_EMAIL_QUEUED"
+    };
     res.status(201).json({ batch, orderUrl, emailDelivery });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
@@ -54,7 +58,11 @@ adminOrderBatchesRouter.post("/:id/resend-link", async (req: Request, res: Respo
     }
 
     const orderUrl = buildOrderUrl(req, batch.id);
-    const emailDelivery = await sendLinkMailSafely(batch, orderUrl);
+    queueLinkMail(batch, orderUrl);
+    const emailDelivery = {
+      ok: true,
+      message: "LINK_EMAIL_QUEUED"
+    };
     res.json({ batch, orderUrl, emailDelivery });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
@@ -82,16 +90,10 @@ function buildOrderUrl(req: Request, batchId: string) {
   return new URL(`/order/${batchId}`, baseUrl).toString();
 }
 
-async function sendLinkMailSafely(batch: OrderBatch, orderUrl: string) {
-  try {
-    return await sendBatchLinkMail(batch, orderUrl);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "MAIL_SEND_FAILED";
-    return {
-      ok: false,
-      message
-    };
-  }
+function queueLinkMail(batch: OrderBatch, orderUrl: string) {
+  void sendBatchLinkMail(batch, orderUrl).catch((error) => {
+    console.error("Failed to send batch link mail", error);
+  });
 }
 
 adminOrderBatchesRouter.delete("/:id", async (req: Request, res: Response) => {

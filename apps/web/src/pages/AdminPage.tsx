@@ -121,7 +121,9 @@ export function AdminPage() {
       setNewBatch((current) => ({ ...current, title: "", memo: "", adminPassword: "" }));
       await load();
 
-      const creationMessage = result.emailDelivery.ok
+      const creationMessage = result.emailDelivery.message === "LINK_EMAIL_QUEUED"
+        ? `주문 묶음을 만들었습니다.\n\n링크 메일은 지금 발송 중입니다.\n주문방 링크:\n${result.orderUrl}`
+        : result.emailDelivery.ok
         ? `주문 묶음을 만들고 링크 메일도 보냈습니다.\n\n주문방 링크:\n${result.orderUrl}`
         : `주문 묶음은 만들었지만 링크 메일 발송은 실패했습니다.\n\n사유: ${result.emailDelivery.message}\n\n주문방 링크:\n${result.orderUrl}`;
       setMessage(creationMessage.replace(/\n/g, " "));
@@ -143,7 +145,9 @@ export function AdminPage() {
     try {
       const result = await resendOrderBatchLink(password, batch.id);
       setLatestOrderUrl(result.orderUrl);
-      const resendMessage = result.emailDelivery.ok
+      const resendMessage = result.emailDelivery.message === "LINK_EMAIL_QUEUED"
+        ? "링크 메일 재발송을 시작했습니다."
+        : result.emailDelivery.ok
         ? "링크 메일을 다시 보냈습니다."
         : `링크 메일 재발송에 실패했습니다. 사유: ${result.emailDelivery.message}`;
       setMessage(resendMessage);

@@ -21,6 +21,9 @@ function getTransport() {
     host: config.smtpHost.trim(),
     port: config.smtpPort,
     secure: config.smtpPort === 465,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     auth: {
       user: smtpUser,
       pass: smtpPass
