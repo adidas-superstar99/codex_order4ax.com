@@ -53,6 +53,8 @@ export async function migrate() {
         department TEXT NOT NULL DEFAULT 'AX Team',
         organizer_name TEXT NOT NULL DEFAULT '',
         organizer_email TEXT NOT NULL DEFAULT '',
+        source_type TEXT,
+        source_external_id TEXT,
         admin_password_hash TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'open',
         created_at TEXT NOT NULL,
@@ -61,6 +63,8 @@ export async function migrate() {
     `);
     await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS organizer_name TEXT NOT NULL DEFAULT '';`);
     await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS organizer_email TEXT NOT NULL DEFAULT '';`);
+    await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS source_type TEXT;`);
+    await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS source_external_id TEXT;`);
     await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS admin_password_hash TEXT NOT NULL DEFAULT '';`);
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS orders (
@@ -91,6 +95,7 @@ export async function migrate() {
       );
     `);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_order_batches_status ON order_batches(status);`);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_order_batches_source_external_id ON order_batches(source_external_id);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_ordered_at ON orders(ordered_at);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);`);
@@ -114,6 +119,8 @@ export async function migrate() {
       department TEXT NOT NULL DEFAULT 'AX Team',
       organizer_name TEXT NOT NULL DEFAULT '',
       organizer_email TEXT NOT NULL DEFAULT '',
+      source_type TEXT,
+      source_external_id TEXT,
       admin_password_hash TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL,
@@ -165,11 +172,18 @@ export async function migrate() {
   if (!batchColumns.some((column) => column.name === "organizer_email")) {
     sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN organizer_email TEXT NOT NULL DEFAULT '';");
   }
+  if (!batchColumns.some((column) => column.name === "source_type")) {
+    sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN source_type TEXT;");
+  }
+  if (!batchColumns.some((column) => column.name === "source_external_id")) {
+    sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN source_external_id TEXT;");
+  }
   if (!batchColumns.some((column) => column.name === "admin_password_hash")) {
     sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN admin_password_hash TEXT NOT NULL DEFAULT '';");
   }
 
   sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);");
+  sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_order_batches_source_external_id ON order_batches(source_external_id);");
 }
 
 export async function withPgTransaction<T>(callback: (client: PoolClient) => Promise<T>) {

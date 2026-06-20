@@ -14,7 +14,7 @@ import {
   updateOrderStatus
 } from "../services/orderService.js";
 import { sendBatchProgressMail } from "../services/mailService.js";
-import { config } from "../config.js";
+import { buildOrderUrl } from "../services/urlService.js";
 import type { Brand } from "../types.js";
 
 export const publicOrdersRouter = Router();
@@ -197,9 +197,4 @@ function readFilters(query: Record<string, unknown>) {
     brand: typeof query.brand === "string" ? (query.brand as Brand) : undefined,
     status
   };
-}
-
-function buildOrderUrl(req: Request, batchId: string) {
-  const baseUrl = config.publicAppUrl || `${req.protocol}://${req.get("host")}`;
-  return new URL(`/order/${batchId}`, baseUrl).toString();
 }

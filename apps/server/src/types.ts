@@ -27,6 +27,8 @@ export type OrderBatch = {
   department: string;
   organizerName: string;
   organizerEmail: string;
+  sourceType?: string;
+  sourceExternalId?: string;
   status: OrderBatchStatus;
   activeBrand?: Brand;
   createdAt: string;
@@ -83,6 +85,8 @@ export type CreateOrderBatchInput = {
   organizerName: string;
   organizerEmail: string;
   adminPassword: string;
+  sourceType?: string;
+  sourceExternalId?: string;
 };
 
 export type UpdateOrderBatchInput = {
@@ -91,5 +95,7 @@ export type UpdateOrderBatchInput = {
   department?: string;
   organizerName?: string;
   organizerEmail?: string;
+  sourceType?: string;
+  sourceExternalId?: string;
   status?: OrderBatchStatus;
 };

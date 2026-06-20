@@ -9,7 +9,7 @@ import {
   updateOrderBatch
 } from "../services/orderService.js";
 import { sendBatchLinkMail } from "../services/mailService.js";
-import { config } from "../config.js";
+import { buildOrderUrl } from "../services/urlService.js";
 import type { OrderBatch } from "../types.js";
 
 export const publicOrderBatchesRouter = Router();
@@ -84,11 +84,6 @@ adminOrderBatchesRouter.patch("/:id", async (req: Request, res: Response) => {
     res.status(400).json({ message });
   }
 });
-
-function buildOrderUrl(req: Request, batchId: string) {
-  const baseUrl = config.publicAppUrl || `${req.protocol}://${req.get("host")}`;
-  return new URL(`/order/${batchId}`, baseUrl).toString();
-}
 
 function queueLinkMail(batch: OrderBatch, orderUrl: string) {
   void sendBatchLinkMail(batch, orderUrl).catch((error) => {

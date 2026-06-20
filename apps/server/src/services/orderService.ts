@@ -48,6 +48,8 @@ type OrderBatchRow = {
   department: string;
   organizer_name: string;
   organizer_email: string;
+  source_type: string | null;
+  source_external_id: string | null;
   admin_password_hash: string;
   status: OrderBatchStatus;
   created_at: string;
@@ -502,11 +504,40 @@ export async function getOrderBatchById(batchId: string) {
   return row ? mapOrderBatchRow(row) : undefined;
 }
 
+export async function getOrderBatchBySource(sourceType: string, sourceExternalId: string) {
+  const normalizedSourceType = sourceType.trim();
+  const normalizedSourceExternalId = sourceExternalId.trim();
+  if (!normalizedSourceType || !normalizedSourceExternalId) {
+    return undefined;
+  }
+
+  if (isPostgres()) {
+    const row = await pgOne<OrderBatchRow>(
+      "SELECT * FROM order_batches WHERE source_type = $1 AND source_external_id = $2",
+      [normalizedSourceType, normalizedSourceExternalId]
+    );
+    return row ? mapOrderBatchRow(row) : undefined;
+  }
+
+  if (isLocalFallback()) {
+    return readLocalStore().orderBatches.find(
+      (batch) => batch.sourceType === normalizedSourceType && batch.sourceExternalId === normalizedSourceExternalId
+    );
+  }
+
+  const row = sqliteDb!
+    .prepare("SELECT * FROM order_batches WHERE source_type = ? AND source_external_id = ?")
+    .get(normalizedSourceType, normalizedSourceExternalId) as OrderBatchRow | undefined;
+  return row ? mapOrderBatchRow(row) : undefined;
+}
+
 export async function createOrderBatch(input: CreateOrderBatchInput) {
   const title = input.title?.trim();
   const organizerName = input.organizerName?.trim();
   const organizerEmail = input.organizerEmail?.trim().toLowerCase();
   const adminPassword = input.adminPassword?.trim();
+  const sourceType = input.sourceType?.trim() || undefined;
+  const sourceExternalId = input.sourceExternalId?.trim() || undefined;
   if (!title) throw new Error("BATCH_TITLE_REQUIRED");
   if (!organizerName) throw new Error("ORGANIZER_NAME_REQUIRED");
   if (!organizerEmail) throw new Error("ORGANIZER_EMAIL_REQUIRED");
@@ -521,15 +552,32 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
     department: input.department?.trim() || "AX Team",
     organizerName,
     organizerEmail,
+    sourceType,
+    sourceExternalId,
     status: "open",
     createdAt: new Date().toISOString()
   };
 
   if (isPostgres()) {
     await pgOne(
-      `INSERT INTO order_batches (id, title, memo, department, organizer_name, organizer_email, admin_password_hash, status, created_at, closed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [batch.id, batch.title, batch.memo ?? null, batch.department, batch.organizerName, batch.organizerEmail, adminPasswordHash, batch.status, batch.createdAt, null]
+      `INSERT INTO order_batches (
+         id, title, memo, department, organizer_name, organizer_email, source_type, source_external_id, admin_password_hash, status, created_at, closed_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        batch.id,
+        batch.title,
+        batch.memo ?? null,
+        batch.department,
+        batch.organizerName,
+        batch.organizerEmail,
+        batch.sourceType ?? null,
+        batch.sourceExternalId ?? null,
+        adminPasswordHash,
+        batch.status,
+        batch.createdAt,
+        null
+      ]
     );
     return batch;
   }
@@ -543,10 +591,10 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
 
   sqliteDb!.prepare(`
     INSERT INTO order_batches (
-      id, title, memo, department, organizer_name, organizer_email, admin_password_hash, status, created_at, closed_at
+      id, title, memo, department, organizer_name, organizer_email, source_type, source_external_id, admin_password_hash, status, created_at, closed_at
     )
     VALUES (
-      @id, @title, @memo, @department, @organizerName, @organizerEmail, @adminPasswordHash, @status, @createdAt, @closedAt
+      @id, @title, @memo, @department, @organizerName, @organizerEmail, @sourceType, @sourceExternalId, @adminPasswordHash, @status, @createdAt, @closedAt
     )
   `).run({
     id: batch.id,
@@ -555,6 +603,8 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
     department: batch.department,
     organizerName: batch.organizerName,
     organizerEmail: batch.organizerEmail,
+    sourceType: batch.sourceType ?? null,
+    sourceExternalId: batch.sourceExternalId ?? null,
     adminPasswordHash,
     status: batch.status,
     createdAt: batch.createdAt,
@@ -580,6 +630,9 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
     department: input.department?.trim() || batch.department,
     organizerName: input.organizerName?.trim() || batch.organizerName,
     organizerEmail: input.organizerEmail?.trim().toLowerCase() || batch.organizerEmail,
+    sourceType: input.sourceType !== undefined ? input.sourceType.trim() || undefined : batch.sourceType,
+    sourceExternalId:
+      input.sourceExternalId !== undefined ? input.sourceExternalId.trim() || undefined : batch.sourceExternalId,
     status: nextStatus,
     closedAt: nextStatus === "closed" ? batch.closedAt ?? new Date().toISOString() : undefined
   };
@@ -591,10 +644,21 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
   if (isPostgres()) {
     await pgOne(
       `UPDATE order_batches
-       SET title = $1, memo = $2, department = $3, organizer_name = $4, organizer_email = $5, status = $6, closed_at = $7
-       WHERE id = $8
+       SET title = $1, memo = $2, department = $3, organizer_name = $4, organizer_email = $5, source_type = $6, source_external_id = $7, status = $8, closed_at = $9
+       WHERE id = $10
        RETURNING id`,
-      [updated.title, updated.memo ?? null, updated.department, updated.organizerName, updated.organizerEmail, updated.status, updated.closedAt ?? null, batchId]
+      [
+        updated.title,
+        updated.memo ?? null,
+        updated.department,
+        updated.organizerName,
+        updated.organizerEmail,
+        updated.sourceType ?? null,
+        updated.sourceExternalId ?? null,
+        updated.status,
+        updated.closedAt ?? null,
+        batchId
+      ]
     );
     return updated;
   }
@@ -611,7 +675,7 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
 
   sqliteDb!.prepare(`
     UPDATE order_batches
-    SET title = @title, memo = @memo, department = @department, organizer_name = @organizerName, organizer_email = @organizerEmail, status = @status, closed_at = @closedAt
+    SET title = @title, memo = @memo, department = @department, organizer_name = @organizerName, organizer_email = @organizerEmail, source_type = @sourceType, source_external_id = @sourceExternalId, status = @status, closed_at = @closedAt
     WHERE id = @id
   `).run({
     id: batchId,
@@ -620,6 +684,8 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
     department: updated.department,
     organizerName: updated.organizerName,
     organizerEmail: updated.organizerEmail,
+    sourceType: updated.sourceType ?? null,
+    sourceExternalId: updated.sourceExternalId ?? null,
     status: updated.status,
     closedAt: updated.closedAt ?? null
   });
@@ -801,6 +867,8 @@ function mapOrderBatchRow(row: OrderBatchRow): OrderBatch {
     department: row.department,
     organizerName: row.organizer_name,
     organizerEmail: row.organizer_email,
+    sourceType: row.source_type ?? undefined,
+    sourceExternalId: row.source_external_id ?? undefined,
     status: row.status,
     createdAt: row.created_at,
     closedAt: row.closed_at ?? undefined

@@ -20,6 +20,8 @@ function createDefaultStore(): LocalStore {
         department: "AX Team",
         organizerName: "AX Team",
         organizerEmail: "ax-team@example.com",
+        sourceType: undefined,
+        sourceExternalId: undefined,
         status: "open",
         createdAt: new Date().toISOString()
       }
@@ -44,7 +46,9 @@ export function readLocalStore(): LocalStore {
     orderBatches: store.orderBatches.map((batch) => ({
       ...batch,
       organizerName: batch.organizerName || batch.department || "AX Team",
-      organizerEmail: batch.organizerEmail || "ax-team@example.com"
+      organizerEmail: batch.organizerEmail || "ax-team@example.com",
+      sourceType: batch.sourceType || undefined,
+      sourceExternalId: batch.sourceExternalId || undefined
     })),
     orders: store.orders
   };

@@ -1,4 +1,3 @@
-import { Resend } from "resend";
 import { config } from "../config.js";
 import type { Order, OrderBatch } from "../types.js";
 
@@ -8,26 +7,36 @@ export type MailDeliveryResult = {
   message: string;
 };
 
-let resendClient: Resend | null = null;
+type HermesMailPayload = {
+  action: "send_email";
+  provider: "gmail";
+  account?: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  tags: string[];
+  metadata: Record<string, string | number | boolean | null | undefined>;
+};
 
-function getMailConfig() {
-  const apiKey = config.resendApiKey.trim();
-  const from = config.resendFromEmail.trim();
+function getHermesConfig() {
+  const apiUrl = config.hermesApiUrl.trim();
+  const apiToken = config.hermesApiToken.trim();
 
-  if (!apiKey || !from) {
+  if (!apiUrl || !apiToken) {
     return null;
   }
 
-  if (!resendClient) {
-    resendClient = new Resend(apiKey);
-  }
-
-  return { client: resendClient, from };
+  return {
+    apiUrl,
+    apiToken,
+    account: config.hermesMailAccount.trim() || undefined
+  };
 }
 
 export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Promise<MailDeliveryResult> {
-  const mailConfig = getMailConfig();
-  if (!mailConfig) {
+  const hermesConfig = getHermesConfig();
+  if (!hermesConfig) {
     return {
       ok: false,
       skipped: true,
@@ -35,7 +44,7 @@ export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Pr
     };
   }
 
-  await sendEmail({
+  await sendHermesMail({
     to: batch.organizerEmail,
     subject: `안녕하세요. ${batch.organizerName}님이 개설한 음료주문방 링크입니다.`,
     text: [
@@ -49,7 +58,14 @@ export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Pr
       `<p>안녕하세요. <strong>${escapeHtml(batch.organizerName)}</strong>님이 개설한 음료주문방의 링크는 아래와 같습니다.</p>`,
       `<p><a href="${escapeHtml(orderUrl)}">${escapeHtml(orderUrl)}</a></p>`,
       "<p>회의방에 그대로 복사해서 붙여 넣어 사용하시면 됩니다.</p>"
-    ].join("")
+    ].join(""),
+    tags: ["batch-link", "order-batch"],
+    metadata: {
+      batchId: batch.id,
+      batchTitle: batch.title,
+      organizerEmail: batch.organizerEmail,
+      orderUrl
+    }
   });
 
   return {
@@ -59,8 +75,8 @@ export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Pr
 }
 
 export async function sendBatchProgressMail(batch: OrderBatch, orders: Order[], orderUrl: string): Promise<MailDeliveryResult> {
-  const mailConfig = getMailConfig();
-  if (!mailConfig) {
+  const hermesConfig = getHermesConfig();
+  if (!hermesConfig) {
     return {
       ok: false,
       skipped: true,
@@ -68,12 +84,19 @@ export async function sendBatchProgressMail(batch: OrderBatch, orders: Order[], 
     };
   }
 
-  const body = buildProgressMailBody(batch, orders, orderUrl);
-  await sendEmail({
+  await sendHermesMail({
     to: batch.organizerEmail,
     subject: `[음료주문 취합] ${batch.title}`,
-    text: body,
-    html: buildProgressMailHtml(batch, orders, orderUrl)
+    text: buildProgressMailBody(batch, orders, orderUrl),
+    html: buildProgressMailHtml(batch, orders, orderUrl),
+    tags: ["batch-progress", "order-batch"],
+    metadata: {
+      batchId: batch.id,
+      batchTitle: batch.title,
+      organizerEmail: batch.organizerEmail,
+      orderCount: orders.filter((order) => order.status !== "cancelled").length,
+      orderUrl
+    }
   });
 
   return {
@@ -82,22 +105,29 @@ export async function sendBatchProgressMail(batch: OrderBatch, orders: Order[], 
   };
 }
 
-async function sendEmail(input: { to: string; subject: string; text: string; html: string }) {
-  const mailConfig = getMailConfig();
-  if (!mailConfig) {
+async function sendHermesMail(input: Omit<HermesMailPayload, "action" | "provider" | "account">) {
+  const hermesConfig = getHermesConfig();
+  if (!hermesConfig) {
     throw new Error("MAIL_NOT_CONFIGURED");
   }
 
-  const { error } = await mailConfig.client.emails.send({
-    from: mailConfig.from,
-    to: [input.to],
-    subject: input.subject,
-    text: input.text,
-    html: input.html
+  const response = await fetch(hermesConfig.apiUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${hermesConfig.apiToken}`
+    },
+    body: JSON.stringify({
+      action: "send_email",
+      provider: "gmail",
+      account: hermesConfig.account,
+      ...input
+    } satisfies HermesMailPayload)
   });
 
-  if (error) {
-    throw new Error(error.message || "MAIL_SEND_FAILED");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `HERMES_MAIL_SEND_FAILED_${response.status}`);
   }
 }
 
