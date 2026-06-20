@@ -9,11 +9,8 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD ?? "1234",
   nodeEnv: process.env.NODE_ENV ?? "development",
   publicAppUrl: process.env.PUBLIC_APP_URL ?? "",
-  smtpHost: process.env.SMTP_HOST ?? "smtp.gmail.com",
-  smtpPort: Number(process.env.SMTP_PORT ?? 465),
-  smtpUser: process.env.SMTP_USER ?? "",
-  smtpPass: process.env.SMTP_PASS ?? "",
-  mailFrom: process.env.MAIL_FROM ?? process.env.SMTP_USER ?? ""
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? process.env.MAIL_FROM ?? ""
 };
 
 export function isPostgresUrl(databaseUrl = config.databaseUrl) {
