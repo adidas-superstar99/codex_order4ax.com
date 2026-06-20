@@ -9,8 +9,8 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD ?? "1234",
   nodeEnv: process.env.NODE_ENV ?? "development",
   publicAppUrl: process.env.PUBLIC_APP_URL ?? "",
-  hermesApiUrl: process.env.HERMES_API_URL ?? "",
-  hermesApiToken: process.env.HERMES_API_TOKEN ?? "",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? process.env.MAIL_FROM ?? "",
   hermesWebhookToken: process.env.HERMES_WEBHOOK_TOKEN ?? "",
   hermesMailAccount: process.env.HERMES_MAIL_ACCOUNT ?? ""
 };

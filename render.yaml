@@ -15,11 +15,9 @@ services:
         sync: false
       - key: PUBLIC_APP_URL
         sync: false
-      - key: HERMES_API_URL
+      - key: RESEND_API_KEY
         sync: false
-      - key: HERMES_API_TOKEN
+      - key: RESEND_FROM_EMAIL
         sync: false
       - key: HERMES_WEBHOOK_TOKEN
-        sync: false
-      - key: HERMES_MAIL_ACCOUNT
         sync: false

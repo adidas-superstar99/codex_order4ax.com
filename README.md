@@ -73,10 +73,9 @@ PORT=3000
 DATABASE_URL=postgresql://...
 ADMIN_PASSWORD=1234
 PUBLIC_APP_URL=https://your-app.example.com
-HERMES_API_URL=https://your-hermes.example.com/api/send-mail
-HERMES_API_TOKEN=your-hermes-api-token
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=Order4AX <noreply@your-domain.com>
 HERMES_WEBHOOK_TOKEN=your-hermes-webhook-token
-HERMES_MAIL_ACCOUNT=your-gmail-account-id
 ```
 
 ## 주의 사항
