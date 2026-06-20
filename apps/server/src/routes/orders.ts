@@ -6,12 +6,15 @@ import {
   cancelOwnOrder,
   createOrder,
   deleteOrder,
+  getOrderBatchById,
   isOrderStatus,
   listOrders,
   listPopularMenus,
   summarizeOrders,
   updateOrderStatus
 } from "../services/orderService.js";
+import { sendBatchProgressMail } from "../services/mailService.js";
+import { config } from "../config.js";
 import type { Brand } from "../types.js";
 
 export const publicOrdersRouter = Router();
@@ -20,6 +23,16 @@ export const ordersRouter = Router();
 publicOrdersRouter.post("/", async (req: Request, res: Response) => {
   try {
     const order = await createOrder(req.body);
+    if (order.batchId) {
+      const batch = await getOrderBatchById(order.batchId);
+      if (batch) {
+        const orderUrl = buildOrderUrl(req, batch.id);
+        const allOrders = await listOrders({ batchId: batch.id });
+        void sendBatchProgressMail(batch, allOrders, orderUrl).catch((error) => {
+          console.error("Failed to send batch progress mail", error);
+        });
+      }
+    }
     res.status(201).json(order);
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
@@ -184,4 +197,9 @@ function readFilters(query: Record<string, unknown>) {
     brand: typeof query.brand === "string" ? (query.brand as Brand) : undefined,
     status
   };
+}
+
+function buildOrderUrl(req: Request, batchId: string) {
+  const baseUrl = config.publicAppUrl || `${req.protocol}://${req.get("host")}`;
+  return new URL(`/order/${batchId}`, baseUrl).toString();
 }

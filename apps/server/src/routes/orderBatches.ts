@@ -10,6 +10,7 @@ import {
 } from "../services/orderService.js";
 import { sendBatchLinkMail } from "../services/mailService.js";
 import { config } from "../config.js";
+import type { OrderBatch } from "../types.js";
 
 export const publicOrderBatchesRouter = Router();
 export const adminOrderBatchesRouter = Router();
@@ -36,7 +37,7 @@ adminOrderBatchesRouter.post("/", async (req: Request, res: Response) => {
   try {
     const batch = await createOrderBatch(req.body);
     const orderUrl = buildOrderUrl(req, batch.id);
-    const emailDelivery = await sendBatchLinkMail(batch, orderUrl);
+    const emailDelivery = await sendLinkMailSafely(batch, orderUrl);
     res.status(201).json({ batch, orderUrl, emailDelivery });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
@@ -53,7 +54,7 @@ adminOrderBatchesRouter.post("/:id/resend-link", async (req: Request, res: Respo
     }
 
     const orderUrl = buildOrderUrl(req, batch.id);
-    const emailDelivery = await sendBatchLinkMail(batch, orderUrl);
+    const emailDelivery = await sendLinkMailSafely(batch, orderUrl);
     res.json({ batch, orderUrl, emailDelivery });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
@@ -79,6 +80,18 @@ adminOrderBatchesRouter.patch("/:id", async (req: Request, res: Response) => {
 function buildOrderUrl(req: Request, batchId: string) {
   const baseUrl = config.publicAppUrl || `${req.protocol}://${req.get("host")}`;
   return new URL(`/order/${batchId}`, baseUrl).toString();
+}
+
+async function sendLinkMailSafely(batch: OrderBatch, orderUrl: string) {
+  try {
+    return await sendBatchLinkMail(batch, orderUrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "MAIL_SEND_FAILED";
+    return {
+      ok: false,
+      message
+    };
+  }
 }
 
 adminOrderBatchesRouter.delete("/:id", async (req: Request, res: Response) => {

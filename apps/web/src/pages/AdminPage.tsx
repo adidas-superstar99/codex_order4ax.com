@@ -87,7 +87,12 @@ export function AdminPage() {
   async function load() {
     setMessage("");
     try {
-      const params = { batchId: batchId || undefined, date, brand, status };
+      const params = {
+        batchId: batchId || undefined,
+        date: date || undefined,
+        brand,
+        status
+      };
       const [nextBatches, nextOrders, nextSummary] = await Promise.all([
         fetchAdminOrderBatches(password),
         fetchAdminOrders(password, params),
@@ -109,9 +114,18 @@ export function AdminPage() {
       window.localStorage.setItem("batchOrganizerName", newBatch.organizerName);
       window.localStorage.setItem("batchOrganizerEmail", newBatch.organizerEmail);
       setLatestOrderUrl(result.orderUrl);
+      setBatchId(result.batch.id);
+      setDate("");
+      setBrand("ALL");
+      setStatus("ALL");
       setNewBatch((current) => ({ ...current, title: "", memo: "", adminPassword: "" }));
       await load();
-      setMessage(result.emailDelivery.ok ? "새 주문 묶음을 만들고 링크 메일도 보냈습니다." : "새 주문 묶음을 만들었습니다. 메일 설정은 아직 확인이 필요합니다.");
+
+      const creationMessage = result.emailDelivery.ok
+        ? `주문 묶음을 만들고 링크 메일도 보냈습니다.\n\n주문방 링크:\n${result.orderUrl}`
+        : `주문 묶음은 만들었지만 링크 메일 발송은 실패했습니다.\n\n사유: ${result.emailDelivery.message}\n\n주문방 링크:\n${result.orderUrl}`;
+      setMessage(creationMessage.replace(/\n/g, " "));
+      window.alert(creationMessage);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "주문 묶음 생성에 실패했습니다.");
     }
@@ -120,17 +134,31 @@ export function AdminPage() {
   async function copyLatestOrderUrl() {
     if (!latestOrderUrl) return;
     await navigator.clipboard.writeText(latestOrderUrl);
-    setMessage("주문방 링크를 복사했습니다.");
+    const copyMessage = "주문방 링크를 복사했습니다.";
+    setMessage(copyMessage);
+    window.alert(copyMessage);
   }
 
   async function resendLink(batch: OrderBatch) {
     try {
       const result = await resendOrderBatchLink(password, batch.id);
       setLatestOrderUrl(result.orderUrl);
-      setMessage(result.emailDelivery.ok ? "링크 메일을 다시 보냈습니다." : "링크 메일 설정이 아직 완료되지 않았습니다.");
+      const resendMessage = result.emailDelivery.ok
+        ? "링크 메일을 다시 보냈습니다."
+        : `링크 메일 재발송에 실패했습니다. 사유: ${result.emailDelivery.message}`;
+      setMessage(resendMessage);
+      window.alert(resendMessage);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "링크 메일 재발송에 실패했습니다.");
     }
+  }
+
+  function focusBatch(batch: OrderBatch) {
+    setBatchId(batch.id);
+    setDate("");
+    setBrand("ALL");
+    setStatus("ALL");
+    setMessage(`"${batch.title}" 주문 묶음을 기준으로 주문 목록을 불러왔습니다.`);
   }
 
   async function toggleBatch(batch: OrderBatch) {
@@ -186,7 +214,7 @@ export function AdminPage() {
     try {
       const result = await bulkUpdateStatus(password, {
         status: nextStatus,
-        filters: { batchId: batchId || undefined, date, brand, status }
+        filters: { batchId: batchId || undefined, date: date || undefined, brand, status }
       });
       await load();
       setMessage(
@@ -202,9 +230,10 @@ export function AdminPage() {
   }
 
   async function downloadCsv() {
-    const response = await fetch(exportCsvUrl({ batchId: batchId || undefined, date, brand, status }), {
-      headers: adminHeaders(password)
-    });
+    const response = await fetch(
+      exportCsvUrl({ batchId: batchId || undefined, date: date || undefined, brand, status }),
+      { headers: adminHeaders(password) }
+    );
     if (!response.ok) {
       setMessage("CSV 다운로드에 실패했습니다.");
       return;
@@ -272,7 +301,7 @@ export function AdminPage() {
                 type="email"
                 value={newBatch.organizerEmail}
                 onChange={(event) => setNewBatch({ ...newBatch, organizerEmail: event.target.value })}
-                placeholder="name@company.com"
+                placeholder="name@samoo.com"
               />
             </label>
             <label className="field">
@@ -329,7 +358,7 @@ export function AdminPage() {
               <article className="batch-card admin-batch-card" key={batch.id}>
                 <div className="batch-card-header">
                   <div>
-                    <p className="section-kicker">{batch.status === "open" ? "Open" : "Closed"}</p>
+                    <p className="section-kicker">{batch.status === "open" ? "OPEN" : "CLOSED"}</p>
                     <h3>{batch.title}</h3>
                   </div>
                   <span className="department-badge">{batch.department}</span>
@@ -337,14 +366,14 @@ export function AdminPage() {
                 <p className="batch-card-copy">{batch.memo || "메모 없음"}</p>
                 <p className="batch-card-copy">{batch.organizerName} · {batch.organizerEmail}</p>
                 <div className="admin-batch-actions">
-                  <button className="secondary-button" type="button" onClick={() => setBatchId(batch.id)}>
-                    주문 보기
+                  <button className="secondary-button" type="button" onClick={() => focusBatch(batch)}>
+                    주문보기
                   </button>
                   <button className="secondary-button" type="button" onClick={() => resendLink(batch)}>
-                    링크 메일 재발송
+                    링크 재발송
                   </button>
                   <button className="secondary-button" type="button" onClick={() => toggleBatch(batch)}>
-                    {batch.status === "open" ? "마감" : "다시 열기"}
+                    {batch.status === "open" ? "마감" : "다시열기"}
                   </button>
                   <button className="secondary-button danger-button" type="button" onClick={() => removeBatch(batch)}>
                     <Trash2 size={15} />
@@ -360,7 +389,18 @@ export function AdminPage() {
           <section className="admin-toolbar">
             <label className="field compact">
               <span>주문 묶음</span>
-              <select value={batchId} onChange={(event) => setBatchId(event.target.value)}>
+              <select
+                value={batchId}
+                onChange={(event) => {
+                  const nextBatchId = event.target.value;
+                  setBatchId(nextBatchId);
+                  if (nextBatchId) {
+                    setDate("");
+                    setBrand("ALL");
+                    setStatus("ALL");
+                  }
+                }}
+              >
                 <option value="">전체 주문 묶음</option>
                 {batches.map((batch) => (
                   <option key={batch.id} value={batch.id}>{batch.title}</option>
