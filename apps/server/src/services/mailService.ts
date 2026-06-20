@@ -1,4 +1,5 @@
 import { createTransport } from "nodemailer";
+import type Mail from "nodemailer/lib/mailer/index.js";
 import { config } from "../config.js";
 import type { Order, OrderBatch } from "../types.js";
 
@@ -8,7 +9,14 @@ export type MailDeliveryResult = {
   message: string;
 };
 
-function getTransport() {
+type TransportCandidate = {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS?: boolean;
+};
+
+function getBaseAuth() {
   const smtpUser = config.smtpUser.trim();
   const smtpPass = config.smtpPass.replace(/\s+/g, "");
   const mailFrom = config.mailFrom.trim();
@@ -17,23 +25,58 @@ function getTransport() {
     return null;
   }
 
+  return { smtpUser, smtpPass, mailFrom };
+}
+
+function getTransportCandidates(): TransportCandidate[] {
+  const configuredHost = config.smtpHost.trim();
+  const configuredPort = config.smtpPort;
+  const configuredSecure = configuredPort === 465;
+  const candidates: TransportCandidate[] = [
+    {
+      host: configuredHost,
+      port: configuredPort,
+      secure: configuredSecure,
+      requireTLS: !configuredSecure
+    }
+  ];
+
+  if (configuredHost === "smtp.gmail.com") {
+    if (configuredPort !== 587) {
+      candidates.push({ host: configuredHost, port: 587, secure: false, requireTLS: true });
+    }
+    if (configuredPort !== 465) {
+      candidates.push({ host: configuredHost, port: 465, secure: true });
+    }
+  }
+
+  return candidates;
+}
+
+function getTransport(candidate: TransportCandidate) {
+  const auth = getBaseAuth();
+  if (!auth) {
+    return null;
+  }
+
   return createTransport({
-    host: config.smtpHost.trim(),
-    port: config.smtpPort,
-    secure: config.smtpPort === 465,
+    host: candidate.host,
+    port: candidate.port,
+    secure: candidate.secure,
+    requireTLS: candidate.requireTLS,
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
     auth: {
-      user: smtpUser,
-      pass: smtpPass
+      user: auth.smtpUser,
+      pass: auth.smtpPass
     }
   });
 }
 
 export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Promise<MailDeliveryResult> {
-  const transport = getTransport();
-  if (!transport) {
+  const auth = getBaseAuth();
+  if (!auth) {
     return {
       ok: false,
       skipped: true,
@@ -41,8 +84,8 @@ export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Pr
     };
   }
 
-  await transport.sendMail({
-    from: config.mailFrom.trim(),
+  await sendMailWithFallback({
+    from: auth.mailFrom,
     to: batch.organizerEmail,
     subject: `안녕하세요. ${batch.organizerName}님이 개설한 음료주문방 링크입니다.`,
     text: [
@@ -61,8 +104,8 @@ export async function sendBatchLinkMail(batch: OrderBatch, orderUrl: string): Pr
 }
 
 export async function sendBatchProgressMail(batch: OrderBatch, orders: Order[], orderUrl: string): Promise<MailDeliveryResult> {
-  const transport = getTransport();
-  if (!transport) {
+  const auth = getBaseAuth();
+  if (!auth) {
     return {
       ok: false,
       skipped: true,
@@ -70,8 +113,8 @@ export async function sendBatchProgressMail(batch: OrderBatch, orders: Order[], 
     };
   }
 
-  await transport.sendMail({
-    from: config.mailFrom.trim(),
+  await sendMailWithFallback({
+    from: auth.mailFrom,
     to: batch.organizerEmail,
     subject: `[음료주문 취합] ${batch.title}`,
     text: buildProgressMailBody(batch, orders, orderUrl)
@@ -123,4 +166,26 @@ function summarizeOrdersForMail(orders: Order[]) {
 
 function getQuantityUnit(brand: Order["items"][number]["brand"]) {
   return brand === "EMART" ? "개" : "잔";
+}
+
+async function sendMailWithFallback(mailOptions: Mail.Options) {
+  const candidates = getTransportCandidates();
+  let lastError: unknown;
+
+  for (const candidate of candidates) {
+    const transport = getTransport(candidate);
+    if (!transport) {
+      throw new Error("MAIL_NOT_CONFIGURED");
+    }
+
+    try {
+      await transport.sendMail(mailOptions);
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(`Mail send failed via ${candidate.host}:${candidate.port}`, error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("MAIL_SEND_FAILED");
 }
