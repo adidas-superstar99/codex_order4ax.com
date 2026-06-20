@@ -8,6 +8,8 @@ import {
   listPublicOrderBatches,
   updateOrderBatch
 } from "../services/orderService.js";
+import { sendBatchLinkMail } from "../services/mailService.js";
+import { config } from "../config.js";
 
 export const publicOrderBatchesRouter = Router();
 export const adminOrderBatchesRouter = Router();
@@ -33,7 +35,26 @@ adminOrderBatchesRouter.get("/", async (_req: Request, res: Response) => {
 adminOrderBatchesRouter.post("/", async (req: Request, res: Response) => {
   try {
     const batch = await createOrderBatch(req.body);
-    res.status(201).json(batch);
+    const orderUrl = buildOrderUrl(req, batch.id);
+    const emailDelivery = await sendBatchLinkMail(batch, orderUrl);
+    res.status(201).json({ batch, orderUrl, emailDelivery });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(400).json({ message });
+  }
+});
+
+adminOrderBatchesRouter.post("/:id/resend-link", async (req: Request, res: Response) => {
+  try {
+    const batch = await getOrderBatchById(req.params.id);
+    if (!batch) {
+      res.status(404).json({ message: "BATCH_NOT_FOUND" });
+      return;
+    }
+
+    const orderUrl = buildOrderUrl(req, batch.id);
+    const emailDelivery = await sendBatchLinkMail(batch, orderUrl);
+    res.json({ batch, orderUrl, emailDelivery });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(400).json({ message });
@@ -54,6 +75,11 @@ adminOrderBatchesRouter.patch("/:id", async (req: Request, res: Response) => {
     res.status(400).json({ message });
   }
 });
+
+function buildOrderUrl(req: Request, batchId: string) {
+  const baseUrl = config.publicAppUrl || `${req.protocol}://${req.get("host")}`;
+  return new URL(`/order/${batchId}`, baseUrl).toString();
+}
 
 adminOrderBatchesRouter.delete("/:id", async (req: Request, res: Response) => {
   const deleted = await deleteOrderBatch(req.params.id);

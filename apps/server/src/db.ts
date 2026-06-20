@@ -51,17 +51,24 @@ export async function migrate() {
         title TEXT NOT NULL,
         memo TEXT,
         department TEXT NOT NULL DEFAULT 'AX Team',
+        organizer_name TEXT NOT NULL DEFAULT '',
+        organizer_email TEXT NOT NULL DEFAULT '',
+        admin_password_hash TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'open',
         created_at TEXT NOT NULL,
         closed_at TEXT
       );
     `);
+    await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS organizer_name TEXT NOT NULL DEFAULT '';`);
+    await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS organizer_email TEXT NOT NULL DEFAULT '';`);
+    await pgPool.query(`ALTER TABLE order_batches ADD COLUMN IF NOT EXISTS admin_password_hash TEXT NOT NULL DEFAULT '';`);
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id TEXT PRIMARY KEY,
         batch_id TEXT REFERENCES order_batches(id) ON DELETE SET NULL,
         ordered_at TEXT NOT NULL,
         orderer_name TEXT NOT NULL,
+        order_password_hash TEXT NOT NULL DEFAULT '',
         team TEXT,
         contact TEXT,
         memo TEXT,
@@ -69,6 +76,7 @@ export async function migrate() {
       );
     `);
     await pgPool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS batch_id TEXT REFERENCES order_batches(id) ON DELETE SET NULL;`);
+    await pgPool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_password_hash TEXT NOT NULL DEFAULT '';`);
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS order_items (
         id TEXT PRIMARY KEY,
@@ -104,6 +112,9 @@ export async function migrate() {
       title TEXT NOT NULL,
       memo TEXT,
       department TEXT NOT NULL DEFAULT 'AX Team',
+      organizer_name TEXT NOT NULL DEFAULT '',
+      organizer_email TEXT NOT NULL DEFAULT '',
+      admin_password_hash TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL,
       closed_at TEXT
@@ -113,6 +124,7 @@ export async function migrate() {
       id TEXT PRIMARY KEY,
       ordered_at TEXT NOT NULL,
       orderer_name TEXT NOT NULL,
+      order_password_hash TEXT NOT NULL DEFAULT '',
       team TEXT,
       contact TEXT,
       memo TEXT,
@@ -141,6 +153,20 @@ export async function migrate() {
   const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
   if (!orderColumns.some((column) => column.name === "batch_id")) {
     sqliteDb.exec("ALTER TABLE orders ADD COLUMN batch_id TEXT REFERENCES order_batches(id) ON DELETE SET NULL;");
+  }
+  if (!orderColumns.some((column) => column.name === "order_password_hash")) {
+    sqliteDb.exec("ALTER TABLE orders ADD COLUMN order_password_hash TEXT NOT NULL DEFAULT '';");
+  }
+
+  const batchColumns = sqliteDb.prepare("PRAGMA table_info(order_batches)").all() as Array<{ name: string }>;
+  if (!batchColumns.some((column) => column.name === "organizer_name")) {
+    sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN organizer_name TEXT NOT NULL DEFAULT '';");
+  }
+  if (!batchColumns.some((column) => column.name === "organizer_email")) {
+    sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN organizer_email TEXT NOT NULL DEFAULT '';");
+  }
+  if (!batchColumns.some((column) => column.name === "admin_password_hash")) {
+    sqliteDb.exec("ALTER TABLE order_batches ADD COLUMN admin_password_hash TEXT NOT NULL DEFAULT '';");
   }
 
   sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);");

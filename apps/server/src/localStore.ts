@@ -18,6 +18,8 @@ function createDefaultStore(): LocalStore {
         title: "Default order batch",
         memo: "Local fallback batch for preview.",
         department: "AX Team",
+        organizerName: "AX Team",
+        organizerEmail: "ax-team@example.com",
         status: "open",
         createdAt: new Date().toISOString()
       }
@@ -37,7 +39,15 @@ export function initLocalStore() {
 
 export function readLocalStore(): LocalStore {
   initLocalStore();
-  return JSON.parse(readFileSync(localStorePath, "utf-8")) as LocalStore;
+  const store = JSON.parse(readFileSync(localStorePath, "utf-8")) as LocalStore;
+  return {
+    orderBatches: store.orderBatches.map((batch) => ({
+      ...batch,
+      organizerName: batch.organizerName || batch.department || "AX Team",
+      organizerEmail: batch.organizerEmail || "ax-team@example.com"
+    })),
+    orders: store.orders
+  };
 }
 
 export function writeLocalStore(store: LocalStore) {

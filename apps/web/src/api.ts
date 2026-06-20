@@ -1,5 +1,17 @@
 import type { Brand, CartItem, Order, OrderBatch, OrderBatchStatus, OrderStatus, PopularMenuRow, SummaryRow } from "./types";
 
+export type BatchLinkDelivery = {
+  ok: boolean;
+  skipped?: boolean;
+  message: string;
+};
+
+export type CreateOrderBatchResult = {
+  batch: OrderBatch;
+  orderUrl: string;
+  emailDelivery: BatchLinkDelivery;
+};
+
 export async function fetchMenus(params: { brand?: Brand; category?: string; query?: string }) {
   const url = new URL("/api/menus", window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -26,6 +38,7 @@ export async function fetchOrderBatch(batchId: string) {
 export async function createOrder(payload: {
   batchId: string;
   ordererName: string;
+  orderPassword: string;
   team?: string;
   contact?: string;
   memo?: string;
@@ -56,10 +69,11 @@ export async function fetchPopularMenus(params: { batchId?: string; brand?: Bran
   return response.json() as Promise<PopularMenuRow[]>;
 }
 
-export async function fetchMyOrders(params: { batchId: string; ordererName: string }) {
+export async function fetchMyOrders(params: { batchId: string; ordererName: string; orderPassword: string }) {
   const url = new URL("/api/orders/mine", window.location.origin);
   url.searchParams.set("batchId", params.batchId);
   url.searchParams.set("ordererName", params.ordererName);
+  url.searchParams.set("orderPassword", params.orderPassword);
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -72,13 +86,14 @@ export async function fetchMyOrders(params: { batchId: string; ordererName: stri
   return Array.isArray(data) ? data : [data];
 }
 
-export async function cancelOwnOrder(payload: { orderId: string; batchId?: string; ordererName: string }) {
+export async function cancelOwnOrder(payload: { orderId: string; batchId?: string; ordererName: string; orderPassword: string }) {
   const response = await fetch(`/api/orders/${payload.orderId}/cancel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       batchId: payload.batchId,
-      ordererName: payload.ordererName
+      ordererName: payload.ordererName,
+      orderPassword: payload.orderPassword
     })
   });
 
@@ -98,7 +113,14 @@ export async function fetchAdminOrderBatches(password: string) {
 
 export async function createOrderBatch(
   password: string,
-  payload: { title: string; memo?: string; department?: string }
+  payload: {
+    title: string;
+    memo?: string;
+    department?: string;
+    organizerName: string;
+    organizerEmail: string;
+    adminPassword: string;
+  }
 ) {
   const response = await fetch("/api/admin/order-batches", {
     method: "POST",
@@ -111,7 +133,21 @@ export async function createOrderBatch(
     throw new Error(error.message ?? "주문 목록 생성에 실패했습니다.");
   }
 
-  return response.json() as Promise<OrderBatch>;
+  return response.json() as Promise<CreateOrderBatchResult>;
+}
+
+export async function resendOrderBatchLink(password: string, batchId: string) {
+  const response = await fetch(`/api/admin/order-batches/${batchId}/resend-link`, {
+    method: "POST",
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "링크 메일 재발송에 실패했습니다." }));
+    throw new Error(error.message ?? "링크 메일 재발송에 실패했습니다.");
+  }
+
+  return response.json() as Promise<CreateOrderBatchResult>;
 }
 
 export async function updateOrderBatch(

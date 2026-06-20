@@ -44,6 +44,7 @@ publicOrdersRouter.get("/mine", async (req: Request, res: Response) => {
   try {
     const batchId = typeof req.query.batchId === "string" ? req.query.batchId : undefined;
     const ordererName = typeof req.query.ordererName === "string" ? req.query.ordererName.trim() : "";
+    const orderPassword = typeof req.query.orderPassword === "string" ? req.query.orderPassword.trim() : "";
 
     if (!batchId) {
       res.status(400).json({ message: "BATCH_REQUIRED" });
@@ -55,7 +56,12 @@ publicOrdersRouter.get("/mine", async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(await listOrders({ batchId, ordererName }));
+    if (!orderPassword) {
+      res.status(400).json({ message: "ORDER_PASSWORD_REQUIRED" });
+      return;
+    }
+
+    res.json(await listOrders({ batchId, ordererName, orderPassword }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(500).json({ message });
@@ -65,6 +71,7 @@ publicOrdersRouter.get("/mine", async (req: Request, res: Response) => {
 publicOrdersRouter.post("/:id/cancel", async (req: Request, res: Response) => {
   try {
     const ordererName = String(req.body.ordererName ?? "").trim();
+    const orderPassword = String(req.body.orderPassword ?? "").trim();
     const batchId = typeof req.body.batchId === "string" ? req.body.batchId : undefined;
 
     if (!ordererName) {
@@ -72,7 +79,12 @@ publicOrdersRouter.post("/:id/cancel", async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(await cancelOwnOrder({ orderId: req.params.id, batchId, ordererName }));
+    if (!orderPassword) {
+      res.status(400).json({ message: "ORDER_PASSWORD_REQUIRED" });
+      return;
+    }
+
+    res.json(await cancelOwnOrder({ orderId: req.params.id, batchId, ordererName, orderPassword }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     res.status(400).json({ message });

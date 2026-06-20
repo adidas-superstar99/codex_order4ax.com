@@ -25,6 +25,8 @@ export type OrderBatch = {
   title: string;
   memo?: string;
   department: string;
+  organizerName: string;
+  organizerEmail: string;
   status: OrderBatchStatus;
   activeBrand?: Brand;
   createdAt: string;
@@ -48,6 +50,7 @@ export type Order = {
   batchId?: string;
   orderedAt: string;
   ordererName: string;
+  orderPasswordHash?: string;
   team?: string;
   contact?: string;
   memo?: string;
@@ -58,6 +61,7 @@ export type Order = {
 export type CreateOrderInput = {
   batchId: string;
   ordererName: string;
+  orderPassword: string;
   team?: string;
   contact?: string;
   memo?: string;
@@ -76,11 +80,16 @@ export type CreateOrderBatchInput = {
   title: string;
   memo?: string;
   department?: string;
+  organizerName: string;
+  organizerEmail: string;
+  adminPassword: string;
 };
 
 export type UpdateOrderBatchInput = {
   title?: string;
   memo?: string;
   department?: string;
+  organizerName?: string;
+  organizerEmail?: string;
   status?: OrderBatchStatus;
 };

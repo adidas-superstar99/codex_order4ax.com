@@ -72,6 +72,7 @@ type RecentOrderReceipt = {
 type CheckoutErrors = {
   ordererName?: string;
   team?: string;
+  orderPassword?: string;
 };
 
 type MenuSortMode = "sales" | "name" | "default";
@@ -162,6 +163,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<Record<string, string>>({});
   const [form, setForm] = useState<OrderFormState>(() => defaultForm());
+  const [orderPassword, setOrderPassword] = useState("");
   const [recentPreset, setRecentPreset] = useState<RecentOrderPreset | null>(null);
   const [recentReceipt, setRecentReceipt] = useState<RecentOrderReceipt | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -317,14 +319,14 @@ export function OrderPage({ batchId }: { batchId: string }) {
   const completedStepCount = batch?.status === "closed" ? 2 : 1;
 
   useEffect(() => {
-    if (!batchId || !activeOrdererName) {
+    if (!batchId || !activeOrdererName || !orderPassword.trim()) {
       setMyOrders([]);
       setHasLoadedMyOrders(false);
       return;
     }
 
     setHasLoadedMyOrders(false);
-    fetchMyOrders({ batchId, ordererName: activeOrdererName })
+    fetchMyOrders({ batchId, ordererName: activeOrdererName, orderPassword })
       .then((orders) => {
         setMyOrders(orders);
         setHasLoadedMyOrders(true);
@@ -333,7 +335,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
         setMyOrders([]);
         setHasLoadedMyOrders(true);
       });
-  }, [activeOrdererName, batchId]);
+  }, [activeOrdererName, batchId, orderPassword]);
 
   useEffect(() => {
     if (!visibleMenusByCategory.length) {
@@ -459,7 +461,8 @@ export function OrderPage({ batchId }: { batchId: string }) {
       await cancelOwnOrder({
         orderId: targetOrder.id,
         batchId,
-        ordererName: targetOrder.ordererName
+        ordererName: targetOrder.ordererName,
+        orderPassword
       });
 
       if (mode === "edit") {
@@ -493,7 +496,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
         window.localStorage.removeItem(getRecentReceiptKey(batchId));
         setRecentReceipt(null);
       }
-      fetchMyOrders({ batchId, ordererName: targetOrder.ordererName })
+      fetchMyOrders({ batchId, ordererName: targetOrder.ordererName, orderPassword })
         .then(setMyOrders)
         .catch(() => setMyOrders([]));
       fetchPopularMenus({ batchId, brand, limit: 8 })
@@ -523,7 +526,8 @@ export function OrderPage({ batchId }: { batchId: string }) {
       await cancelOwnOrder({
         orderId: recentReceipt.orderId,
         batchId,
-        ordererName: recentReceipt.ordererName
+        ordererName: recentReceipt.ordererName,
+        orderPassword
       });
 
       if (mode === "edit") {
@@ -658,7 +662,11 @@ export function OrderPage({ batchId }: { batchId: string }) {
       nextErrors.team = "부서명을 입력해 주세요.";
     }
 
-    if (nextErrors.ordererName || nextErrors.team) {
+    if (!orderPassword.trim()) {
+      nextErrors.orderPassword = "주문 비밀번호를 입력해 주세요";
+    }
+
+    if (nextErrors.ordererName || nextErrors.team || nextErrors.orderPassword) {
       setCheckoutErrors(nextErrors);
       setIsCheckoutOpen(true);
       return;
@@ -671,7 +679,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
 
     setIsSubmitting(true);
     try {
-      const order = await createOrder({ batchId, ...form, items: cart });
+      const order = await createOrder({ batchId, ...form, orderPassword, items: cart });
       saveRecentOrder(order);
       setMyOrders((current) => [order, ...current.filter((entry) => entry.id !== order.id)]);
       setHasLoadedMyOrders(true);
@@ -684,7 +692,7 @@ export function OrderPage({ batchId }: { batchId: string }) {
       });
       setCheckoutErrors({});
       setIsCheckoutOpen(false);
-      fetchMyOrders({ batchId, ordererName: order.ordererName })
+      fetchMyOrders({ batchId, ordererName: order.ordererName, orderPassword })
         .then((orders) => {
           setMyOrders(orders);
           setHasLoadedMyOrders(true);
@@ -1106,6 +1114,16 @@ export function OrderPage({ batchId }: { batchId: string }) {
             <label className="field">
               <span>메모</span>
               <input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="공동 주문 메모가 있으면 적어 주세요" />
+            </label>
+            <label className="field">
+              <span>주문 비밀번호 *</span>
+              <input
+                type="password"
+                value={orderPassword}
+                onChange={(event) => setOrderPassword(event.target.value)}
+                placeholder="내 주문 수정/삭제에 사용할 비밀번호"
+              />
+              {checkoutErrors.orderPassword ? <small className="field-error">{checkoutErrors.orderPassword}</small> : null}
             </label>
             <div className="checkout-preview">
               <div className="panel-title-row compact-preview-title">

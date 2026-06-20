@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { isLocalFallback, isPostgres, pgAll, pgOne, sqliteDb, withPgTransaction } from "../db.js";
 import { readLocalStore, writeLocalStore } from "../localStore.js";
+import { hashSecret, verifySecret } from "./authService.js";
 import type {
   Brand,
   CreateOrderBatchInput,
@@ -21,6 +22,7 @@ type OrderRow = {
   batch_id: string | null;
   ordered_at: string;
   orderer_name: string;
+  order_password_hash: string;
   team: string | null;
   contact: string | null;
   memo: string | null;
@@ -44,6 +46,9 @@ type OrderBatchRow = {
   title: string;
   memo: string | null;
   department: string;
+  organizer_name: string;
+  organizer_email: string;
+  admin_password_hash: string;
   status: OrderBatchStatus;
   created_at: string;
   closed_at: string | null;
@@ -60,8 +65,10 @@ export function isOrderBatchStatus(value: string): value is OrderBatchStatus {
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   const ordererName = input.ordererName.trim();
   const batchId = input.batchId?.trim();
+  const orderPassword = input.orderPassword?.trim();
   if (!batchId) throw new Error("BATCH_REQUIRED");
   if (!ordererName) throw new Error("ORDERER_NAME_REQUIRED");
+  if (!orderPassword) throw new Error("ORDER_PASSWORD_REQUIRED");
   if (!input.items.length) throw new Error("ORDER_ITEMS_REQUIRED");
 
   const batch = await getOrderBatchById(batchId);
@@ -70,6 +77,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
 
   const orderedAt = new Date().toISOString();
   const orderId = nanoid();
+  const orderPasswordHash = await hashSecret(orderPassword);
 
   for (const item of input.items) {
     if (!item.quantity || item.quantity < 1) {
@@ -80,9 +88,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (isPostgres()) {
     await withPgTransaction(async (client) => {
       await client.query(
-        `INSERT INTO orders (id, batch_id, ordered_at, orderer_name, team, contact, memo, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'submitted')`,
-        [orderId, batchId, orderedAt, ordererName, input.team?.trim() || null, input.contact?.trim() || null, input.memo?.trim() || null]
+        `INSERT INTO orders (id, batch_id, ordered_at, orderer_name, order_password_hash, team, contact, memo, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'submitted')`,
+        [orderId, batchId, orderedAt, ordererName, orderPasswordHash, input.team?.trim() || null, input.contact?.trim() || null, input.memo?.trim() || null]
       );
 
       for (const item of input.items) {
@@ -104,7 +112,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
         );
       }
     });
-    return (await getOrderById(orderId))!;
+    return stripSensitiveOrderFields((await getOrderById(orderId))!);
   }
 
   if (isLocalFallback()) {
@@ -114,6 +122,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       batchId,
       orderedAt,
       ordererName,
+      orderPasswordHash,
       team: input.team?.trim() || undefined,
       contact: input.contact?.trim() || undefined,
       memo: input.memo?.trim() || undefined,
@@ -132,12 +141,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     };
     store.orders.push(order);
     writeLocalStore(store);
-    return order;
+    return stripSensitiveOrderFields(order);
   }
 
   const insertOrder = sqliteDb!.prepare(`
-    INSERT INTO orders (id, batch_id, ordered_at, orderer_name, team, contact, memo, status)
-    VALUES (@id, @batchId, @orderedAt, @ordererName, @team, @contact, @memo, 'submitted')
+    INSERT INTO orders (id, batch_id, ordered_at, orderer_name, order_password_hash, team, contact, memo, status)
+    VALUES (@id, @batchId, @orderedAt, @ordererName, @orderPasswordHash, @team, @contact, @memo, 'submitted')
   `);
   const insertItem = sqliteDb!.prepare(`
     INSERT INTO order_items (
@@ -153,6 +162,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       batchId,
       orderedAt,
       ordererName,
+      orderPasswordHash,
       team: input.team?.trim() || null,
       contact: input.contact?.trim() || null,
       memo: input.memo?.trim() || null
@@ -174,10 +184,17 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   });
 
   transaction();
-  return (await getOrderById(orderId))!;
+  return stripSensitiveOrderFields((await getOrderById(orderId))!);
 }
 
-export async function listOrders(filters: { batchId?: string; date?: string; brand?: Brand; status?: OrderStatus; ordererName?: string }): Promise<Order[]> {
+export async function listOrders(filters: {
+  batchId?: string;
+  date?: string;
+  brand?: Brand;
+  status?: OrderStatus;
+  ordererName?: string;
+  orderPassword?: string;
+}): Promise<Order[]> {
   const clauses: string[] = [];
   const values: unknown[] = [];
 
@@ -206,11 +223,11 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
 
   if (isPostgres()) {
     const rows = await pgAll<OrderRow>(`SELECT * FROM orders o ${where} ORDER BY o.ordered_at DESC`, values);
-    return Promise.all(rows.map(mapOrderRowAsync));
+    return filterOrdersByPassword(await Promise.all(rows.map(mapOrderRowAsync)), filters.orderPassword);
   }
 
   if (isLocalFallback()) {
-    return readLocalStore()
+    const orders = readLocalStore()
       .orders
       .filter((order) => {
         if (filters.batchId && order.batchId !== filters.batchId) return false;
@@ -224,6 +241,7 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
         return true;
       })
       .sort((a, b) => b.orderedAt.localeCompare(a.orderedAt));
+    return filterOrdersByPassword(orders, filters.orderPassword);
   }
 
   const sqliteParams: Record<string, string> = {};
@@ -245,7 +263,7 @@ export async function listOrders(filters: { batchId?: string; date?: string; bra
   if (filters.brand) sqliteClauses.push("EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.brand = @brand)");
   const sqliteWhere = sqliteClauses.length ? `WHERE ${sqliteClauses.join(" AND ")}` : "";
   const rows = sqliteDb!.prepare(`SELECT * FROM orders o ${sqliteWhere} ORDER BY o.ordered_at DESC`).all(sqliteParams) as OrderRow[];
-  return rows.map(mapOrderRowSync);
+  return filterOrdersByPassword(rows.map(mapOrderRowSync), filters.orderPassword);
 }
 
 export async function getOrderById(orderId: string): Promise<Order | undefined> {
@@ -265,7 +283,8 @@ export async function getOrderById(orderId: string): Promise<Order | undefined> 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   if (isPostgres()) {
     const result = await pgOne<{ id: string }>("UPDATE orders SET status = $1 WHERE id = $2 RETURNING id", [status, orderId]);
-    return result ? getOrderById(orderId) : undefined;
+    const order = result ? await getOrderById(orderId) : undefined;
+    return order ? stripSensitiveOrderFields(order) : undefined;
   }
 
   if (isLocalFallback()) {
@@ -274,12 +293,13 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
     if (!order) return undefined;
     order.status = status;
     writeLocalStore(store);
-    return order;
+    return stripSensitiveOrderFields(order);
   }
 
   const result = sqliteDb!.prepare("UPDATE orders SET status = ? WHERE id = ?").run(status, orderId);
   if (result.changes === 0) return undefined;
-  return getOrderById(orderId);
+  const updatedOrder = await getOrderById(orderId);
+  return updatedOrder ? stripSensitiveOrderFields(updatedOrder) : undefined;
 }
 
 export async function deleteOrder(orderId: string) {
@@ -305,7 +325,7 @@ export async function deleteOrder(orderId: string) {
   return result.changes > 0;
 }
 
-export async function cancelOwnOrder(input: { orderId: string; batchId?: string; ordererName: string }) {
+export async function cancelOwnOrder(input: { orderId: string; batchId?: string; ordererName: string; orderPassword: string }) {
   const order = await getOrderById(input.orderId);
   if (!order) {
     throw new Error("ORDER_NOT_FOUND");
@@ -313,6 +333,10 @@ export async function cancelOwnOrder(input: { orderId: string; batchId?: string;
 
   if (order.ordererName.trim() !== input.ordererName.trim()) {
     throw new Error("ORDER_OWNER_MISMATCH");
+  }
+
+  if (!(await verifySecret(input.orderPassword, order.orderPasswordHash ?? ""))) {
+    throw new Error("ORDER_PASSWORD_MISMATCH");
   }
 
   if (input.batchId && order.batchId !== input.batchId) {
@@ -480,22 +504,32 @@ export async function getOrderBatchById(batchId: string) {
 
 export async function createOrderBatch(input: CreateOrderBatchInput) {
   const title = input.title?.trim();
+  const organizerName = input.organizerName?.trim();
+  const organizerEmail = input.organizerEmail?.trim().toLowerCase();
+  const adminPassword = input.adminPassword?.trim();
   if (!title) throw new Error("BATCH_TITLE_REQUIRED");
+  if (!organizerName) throw new Error("ORGANIZER_NAME_REQUIRED");
+  if (!organizerEmail) throw new Error("ORGANIZER_EMAIL_REQUIRED");
+  if (!adminPassword) throw new Error("BATCH_ADMIN_PASSWORD_REQUIRED");
+
+  const adminPasswordHash = await hashSecret(adminPassword);
 
   const batch: OrderBatch = {
     id: nanoid(),
     title,
     memo: input.memo?.trim() || undefined,
     department: input.department?.trim() || "AX Team",
+    organizerName,
+    organizerEmail,
     status: "open",
     createdAt: new Date().toISOString()
   };
 
   if (isPostgres()) {
     await pgOne(
-      `INSERT INTO order_batches (id, title, memo, department, status, created_at, closed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [batch.id, batch.title, batch.memo ?? null, batch.department, batch.status, batch.createdAt, null]
+      `INSERT INTO order_batches (id, title, memo, department, organizer_name, organizer_email, admin_password_hash, status, created_at, closed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [batch.id, batch.title, batch.memo ?? null, batch.department, batch.organizerName, batch.organizerEmail, adminPasswordHash, batch.status, batch.createdAt, null]
     );
     return batch;
   }
@@ -508,13 +542,20 @@ export async function createOrderBatch(input: CreateOrderBatchInput) {
   }
 
   sqliteDb!.prepare(`
-    INSERT INTO order_batches (id, title, memo, department, status, created_at, closed_at)
-    VALUES (@id, @title, @memo, @department, @status, @createdAt, @closedAt)
+    INSERT INTO order_batches (
+      id, title, memo, department, organizer_name, organizer_email, admin_password_hash, status, created_at, closed_at
+    )
+    VALUES (
+      @id, @title, @memo, @department, @organizerName, @organizerEmail, @adminPasswordHash, @status, @createdAt, @closedAt
+    )
   `).run({
     id: batch.id,
     title: batch.title,
     memo: batch.memo ?? null,
     department: batch.department,
+    organizerName: batch.organizerName,
+    organizerEmail: batch.organizerEmail,
+    adminPasswordHash,
     status: batch.status,
     createdAt: batch.createdAt,
     closedAt: null
@@ -537,6 +578,8 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
     title: input.title?.trim() || batch.title,
     memo: input.memo !== undefined ? input.memo.trim() || undefined : batch.memo,
     department: input.department?.trim() || batch.department,
+    organizerName: input.organizerName?.trim() || batch.organizerName,
+    organizerEmail: input.organizerEmail?.trim().toLowerCase() || batch.organizerEmail,
     status: nextStatus,
     closedAt: nextStatus === "closed" ? batch.closedAt ?? new Date().toISOString() : undefined
   };
@@ -548,10 +591,10 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
   if (isPostgres()) {
     await pgOne(
       `UPDATE order_batches
-       SET title = $1, memo = $2, department = $3, status = $4, closed_at = $5
-       WHERE id = $6
+       SET title = $1, memo = $2, department = $3, organizer_name = $4, organizer_email = $5, status = $6, closed_at = $7
+       WHERE id = $8
        RETURNING id`,
-      [updated.title, updated.memo ?? null, updated.department, updated.status, updated.closedAt ?? null, batchId]
+      [updated.title, updated.memo ?? null, updated.department, updated.organizerName, updated.organizerEmail, updated.status, updated.closedAt ?? null, batchId]
     );
     return updated;
   }
@@ -568,13 +611,15 @@ export async function updateOrderBatch(batchId: string, input: UpdateOrderBatchI
 
   sqliteDb!.prepare(`
     UPDATE order_batches
-    SET title = @title, memo = @memo, department = @department, status = @status, closed_at = @closedAt
+    SET title = @title, memo = @memo, department = @department, organizer_name = @organizerName, organizer_email = @organizerEmail, status = @status, closed_at = @closedAt
     WHERE id = @id
   `).run({
     id: batchId,
     title: updated.title,
     memo: updated.memo ?? null,
     department: updated.department,
+    organizerName: updated.organizerName,
+    organizerEmail: updated.organizerEmail,
     status: updated.status,
     closedAt: updated.closedAt ?? null
   });
@@ -706,6 +751,7 @@ async function mapOrderRowAsync(row: OrderRow): Promise<Order> {
     batchId: row.batch_id ?? undefined,
     orderedAt: row.ordered_at,
     ordererName: row.orderer_name,
+    orderPasswordHash: row.order_password_hash,
     team: row.team ?? undefined,
     contact: row.contact ?? undefined,
     memo: row.memo ?? undefined,
@@ -724,6 +770,7 @@ function mapOrderRowSync(row: OrderRow): Order {
     batchId: row.batch_id ?? undefined,
     orderedAt: row.ordered_at,
     ordererName: row.orderer_name,
+    orderPasswordHash: row.order_password_hash,
     team: row.team ?? undefined,
     contact: row.contact ?? undefined,
     memo: row.memo ?? undefined,
@@ -752,8 +799,31 @@ function mapOrderBatchRow(row: OrderBatchRow): OrderBatch {
     title: row.title,
     memo: row.memo ?? undefined,
     department: row.department,
+    organizerName: row.organizer_name,
+    organizerEmail: row.organizer_email,
     status: row.status,
     createdAt: row.created_at,
     closedAt: row.closed_at ?? undefined
+  };
+}
+
+async function filterOrdersByPassword(orders: Order[], orderPassword?: string) {
+  if (!orderPassword) {
+    return orders.map(stripSensitiveOrderFields);
+  }
+
+  const filteredOrders: Order[] = [];
+  for (const order of orders) {
+    if (await verifySecret(orderPassword, order.orderPasswordHash ?? "")) {
+      filteredOrders.push(stripSensitiveOrderFields(order));
+    }
+  }
+  return filteredOrders;
+}
+
+function stripSensitiveOrderFields(order: Order): Order {
+  return {
+    ...order,
+    orderPasswordHash: undefined
   };
 }

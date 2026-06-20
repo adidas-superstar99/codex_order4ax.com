@@ -72,6 +72,12 @@ DATABASE_URL=Supabase의-Postgres-연결문자열
 PORT=3000
 DATABASE_URL=postgresql://...
 ADMIN_PASSWORD=1234
+PUBLIC_APP_URL=https://your-app.example.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=your-gmail@gmail.com
+SMTP_PASS=your-16-digit-app-password
+MAIL_FROM=your-gmail@gmail.com
 ```
 
 ## 주의 사항

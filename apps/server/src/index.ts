@@ -21,6 +21,7 @@ const webDistPath = candidateWebDistPaths.find((path) => existsSync(path));
 
 const app = express();
 
+app.set("trust proxy", true);
 app.use(cors());
 app.use(express.json());
 

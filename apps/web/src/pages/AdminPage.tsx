@@ -11,6 +11,7 @@ import {
   fetchAdminOrderBatches,
   fetchAdminOrders,
   fetchSummary,
+  resendOrderBatchLink,
   updateOrderBatch,
   updateStatus
 } from "../api";
@@ -50,6 +51,8 @@ function getQuantityUnit(brand: Brand) {
 }
 
 export function AdminPage() {
+  const savedOrganizerName = window.localStorage.getItem("batchOrganizerName") ?? "";
+  const savedOrganizerEmail = window.localStorage.getItem("batchOrganizerEmail") ?? "";
   const [password, setPassword] = useState(() => window.localStorage.getItem("adminPassword") ?? "1234");
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [date, setDate] = useState(() => getTodayInSeoul());
@@ -60,8 +63,16 @@ export function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [message, setMessage] = useState("");
+  const [latestOrderUrl, setLatestOrderUrl] = useState("");
   const [isApplyingBulkAction, setIsApplyingBulkAction] = useState(false);
-  const [newBatch, setNewBatch] = useState({ title: "", department: "AX팀", memo: "" });
+  const [newBatch, setNewBatch] = useState({
+    title: "",
+    department: "AX팀",
+    memo: "",
+    organizerName: savedOrganizerName,
+    organizerEmail: savedOrganizerEmail,
+    adminPassword: ""
+  });
 
   useEffect(() => {
     if (isUnlocked) void load();
@@ -94,12 +105,31 @@ export function AdminPage() {
   async function handleCreateBatch(event: FormEvent) {
     event.preventDefault();
     try {
-      await createOrderBatch(password, newBatch);
-      setNewBatch({ title: "", department: "AX팀", memo: "" });
+      const result = await createOrderBatch(password, newBatch);
+      window.localStorage.setItem("batchOrganizerName", newBatch.organizerName);
+      window.localStorage.setItem("batchOrganizerEmail", newBatch.organizerEmail);
+      setLatestOrderUrl(result.orderUrl);
+      setNewBatch((current) => ({ ...current, title: "", memo: "", adminPassword: "" }));
       await load();
-      setMessage("새 주문 묶음을 만들었습니다.");
+      setMessage(result.emailDelivery.ok ? "새 주문 묶음을 만들고 링크 메일도 보냈습니다." : "새 주문 묶음을 만들었습니다. 메일 설정은 아직 확인이 필요합니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "주문 묶음 생성에 실패했습니다.");
+    }
+  }
+
+  async function copyLatestOrderUrl() {
+    if (!latestOrderUrl) return;
+    await navigator.clipboard.writeText(latestOrderUrl);
+    setMessage("주문방 링크를 복사했습니다.");
+  }
+
+  async function resendLink(batch: OrderBatch) {
+    try {
+      const result = await resendOrderBatchLink(password, batch.id);
+      setLatestOrderUrl(result.orderUrl);
+      setMessage(result.emailDelivery.ok ? "링크 메일을 다시 보냈습니다." : "링크 메일 설정이 아직 완료되지 않았습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "링크 메일 재발송에 실패했습니다.");
     }
   }
 
@@ -229,6 +259,23 @@ export function AdminPage() {
 
           <form className="batch-create-form" onSubmit={handleCreateBatch}>
             <label className="field">
+              <span>개설자 이름</span>
+              <input
+                value={newBatch.organizerName}
+                onChange={(event) => setNewBatch({ ...newBatch, organizerName: event.target.value })}
+                placeholder="회의 개설자 이름"
+              />
+            </label>
+            <label className="field">
+              <span>개설자 이메일</span>
+              <input
+                type="email"
+                value={newBatch.organizerEmail}
+                onChange={(event) => setNewBatch({ ...newBatch, organizerEmail: event.target.value })}
+                placeholder="name@company.com"
+              />
+            </label>
+            <label className="field">
               <span>주문 제목</span>
               <input
                 value={newBatch.title}
@@ -252,11 +299,30 @@ export function AdminPage() {
                 placeholder="주문 안내 메모"
               />
             </label>
+            <label className="field">
+              <span>주문방 비밀번호</span>
+              <input
+                type="password"
+                value={newBatch.adminPassword}
+                onChange={(event) => setNewBatch({ ...newBatch, adminPassword: event.target.value })}
+                placeholder="주문방 관리용 비밀번호"
+              />
+            </label>
             <button className="primary-button" type="submit">
               <PlusCircle size={18} />
               주문 묶음 생성
             </button>
           </form>
+
+          {latestOrderUrl ? (
+            <div className="dashboard-section">
+              <h3>방금 만든 주문방 링크</h3>
+              <p>{latestOrderUrl}</p>
+              <button className="secondary-button" type="button" onClick={copyLatestOrderUrl}>
+                링크 복사
+              </button>
+            </div>
+          ) : null}
 
           <div className="batch-grid compact-batch-grid">
             {batches.map((batch) => (
@@ -269,9 +335,13 @@ export function AdminPage() {
                   <span className="department-badge">{batch.department}</span>
                 </div>
                 <p className="batch-card-copy">{batch.memo || "메모 없음"}</p>
+                <p className="batch-card-copy">{batch.organizerName} · {batch.organizerEmail}</p>
                 <div className="admin-batch-actions">
                   <button className="secondary-button" type="button" onClick={() => setBatchId(batch.id)}>
                     주문 보기
+                  </button>
+                  <button className="secondary-button" type="button" onClick={() => resendLink(batch)}>
+                    링크 메일 재발송
                   </button>
                   <button className="secondary-button" type="button" onClick={() => toggleBatch(batch)}>
                     {batch.status === "open" ? "마감" : "다시 열기"}
