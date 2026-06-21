@@ -1695,6 +1695,12 @@ th {
   font-size: 1rem;
 }
 
+.cloud-note-meta {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .cloud-note-card span,
 .cloud-note-card p,
 .cloud-file-meta span,
@@ -1703,8 +1709,12 @@ th {
   color: var(--text-secondary);
 }
 
-.cloud-note-card p {
+.cloud-note-body {
   margin: 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  line-height: 1.7;
+  color: var(--text);
   line-height: 1.6;
   white-space: pre-wrap;
 }

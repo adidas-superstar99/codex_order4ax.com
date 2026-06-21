@@ -306,16 +306,16 @@ export function CloudPage() {
                   {isUnlocked ? (
                     <button className="cloud-note-card" type="button" onClick={() => startEditNote(note)}>
                       <strong>{note.title}</strong>
-                      <span>생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
-                      <span>수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
-                      <p>{note.content}</p>
+                      <span className="cloud-note-meta">생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
+                      <span className="cloud-note-meta">수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
+                      <p className="cloud-note-body">{note.content}</p>
                     </button>
                   ) : (
                     <div className="cloud-note-card">
                       <strong>{note.title}</strong>
-                      <span>생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
-                      <span>수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
-                      <p>{note.content}</p>
+                      <span className="cloud-note-meta">생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
+                      <span className="cloud-note-meta">수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
+                      <p className="cloud-note-body">{note.content}</p>
                     </div>
                   )}
                   {isUnlocked ? (
