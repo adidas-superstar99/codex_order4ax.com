@@ -1,4 +1,15 @@
-import type { Brand, CartItem, Order, OrderBatch, OrderBatchStatus, OrderStatus, PopularMenuRow, SummaryRow } from "./types";
+import type {
+  Brand,
+  CartItem,
+  CloudFile,
+  CloudNote,
+  Order,
+  OrderBatch,
+  OrderBatchStatus,
+  OrderStatus,
+  PopularMenuRow,
+  SummaryRow
+} from "./types";
 
 export type BatchLinkDelivery = {
   ok: boolean;
@@ -10,6 +21,14 @@ export type CreateOrderBatchResult = {
   batch: OrderBatch;
   orderUrl: string;
   emailDelivery: BatchLinkDelivery;
+};
+
+export type CloudState = {
+  notes: CloudNote[];
+  files: CloudFile[];
+  limits: {
+    maxFileSizeBytes: number;
+  };
 };
 
 export async function fetchMenus(params: { brand?: Brand; category?: string; query?: string }) {
@@ -241,6 +260,101 @@ export async function bulkUpdateStatus(
 
   if (!response.ok) throw new Error("일괄 상태 변경에 실패했습니다.");
   return response.json() as Promise<{ updatedCount: number }>;
+}
+
+export async function fetchCloudState(password: string) {
+  const response = await fetch("/api/admin/cloud", { headers: adminHeaders(password) });
+  if (!response.ok) throw new Error("Cloud data could not be loaded.");
+  return response.json() as Promise<CloudState>;
+}
+
+export async function createCloudNote(password: string, payload: { title: string; content: string }) {
+  const response = await fetch("/api/admin/cloud/notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud note could not be created." }));
+    throw new Error(error.message ?? "Cloud note could not be created.");
+  }
+
+  return response.json() as Promise<CloudNote>;
+}
+
+export async function updateCloudNote(password: string, noteId: string, payload: { title: string; content: string }) {
+  const response = await fetch(`/api/admin/cloud/notes/${noteId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud note could not be updated." }));
+    throw new Error(error.message ?? "Cloud note could not be updated.");
+  }
+
+  return response.json() as Promise<CloudNote>;
+}
+
+export async function deleteCloudNote(password: string, noteId: string) {
+  const response = await fetch(`/api/admin/cloud/notes/${noteId}`, {
+    method: "DELETE",
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud note could not be deleted." }));
+    throw new Error(error.message ?? "Cloud note could not be deleted.");
+  }
+
+  return response.json() as Promise<{ ok: true }>;
+}
+
+export async function uploadCloudFile(
+  password: string,
+  payload: { originalName: string; mimeType: string; sizeBytes: number; contentBase64: string }
+) {
+  const response = await fetch("/api/admin/cloud/files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminHeaders(password) },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud file could not be uploaded." }));
+    throw new Error(error.message ?? "Cloud file could not be uploaded.");
+  }
+
+  return response.json() as Promise<CloudFile>;
+}
+
+export async function deleteCloudFile(password: string, fileId: string) {
+  const response = await fetch(`/api/admin/cloud/files/${fileId}`, {
+    method: "DELETE",
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud file could not be deleted." }));
+    throw new Error(error.message ?? "Cloud file could not be deleted.");
+  }
+
+  return response.json() as Promise<{ ok: true }>;
+}
+
+export async function downloadCloudFile(password: string, file: CloudFile) {
+  const response = await fetch(`/api/admin/cloud/files/${file.id}/download`, {
+    headers: adminHeaders(password)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Cloud file could not be downloaded." }));
+    throw new Error(error.message ?? "Cloud file could not be downloaded.");
+  }
+
+  return response.blob();
 }
 
 export function exportCsvUrl(params: { batchId?: string; date?: string; brand?: Brand | "ALL"; status?: OrderStatus | "ALL" }) {

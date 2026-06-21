@@ -1,11 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Order, OrderBatch } from "./types.js";
+import type { CloudFile, CloudNote, Order, OrderBatch } from "./types.js";
 
 type LocalStore = {
   orderBatches: OrderBatch[];
   orders: Order[];
+  cloudNotes: CloudNote[];
+  cloudFiles: Array<CloudFile & { contentBase64: string }>;
 };
 
 const localStorePath = join(process.cwd(), "data/local-store.json");
@@ -26,7 +28,9 @@ function createDefaultStore(): LocalStore {
         createdAt: new Date().toISOString()
       }
     ],
-    orders: []
+    orders: [],
+    cloudNotes: [],
+    cloudFiles: []
   };
 }
 
@@ -50,7 +54,9 @@ export function readLocalStore(): LocalStore {
       sourceType: batch.sourceType || undefined,
       sourceExternalId: batch.sourceExternalId || undefined
     })),
-    orders: store.orders
+    orders: store.orders,
+    cloudNotes: store.cloudNotes ?? [],
+    cloudFiles: store.cloudFiles ?? []
   };
 }
 

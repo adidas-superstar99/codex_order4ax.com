@@ -71,3 +71,19 @@ export type PopularMenuRow = {
   quantity: number;
   ordererNames: string[];
 };
+
+export type CloudNote = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CloudFile = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+};

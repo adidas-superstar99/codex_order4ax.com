@@ -1652,6 +1652,110 @@ th {
   padding-left: 18px;
 }
 
+.cloud-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
+}
+
+.cloud-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cloud-note-editor,
+.cloud-note-list,
+.cloud-file-list {
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-item-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cloud-note-card {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.cloud-note-card strong,
+.cloud-file-main strong {
+  font-size: 1rem;
+}
+
+.cloud-note-card span,
+.cloud-note-card p,
+.cloud-file-meta span,
+.cloud-file-main span,
+.cloud-limit-text {
+  color: var(--text-secondary);
+}
+
+.cloud-note-card p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.cloud-file-card,
+.cloud-file-main,
+.cloud-file-meta,
+.cloud-file-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.cloud-file-card,
+.cloud-file-meta {
+  justify-content: space-between;
+}
+
+.cloud-file-card {
+  align-items: flex-start;
+}
+
+.cloud-file-main {
+  align-items: center;
+  min-width: 0;
+}
+
+.cloud-file-main > div {
+  min-width: 0;
+}
+
+.cloud-file-main strong,
+.cloud-file-main span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.cloud-file-meta,
+.cloud-file-actions {
+  flex-wrap: wrap;
+}
+
+.cloud-upload-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.cloud-limit-text {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+}
+
 @media (max-width: 1320px) {
   .layout {
     grid-template-columns: 1fr;
@@ -1681,7 +1785,8 @@ th {
 @media (max-width: 1100px) {
   .hero-panel,
   .layout,
-  .side-panel-premium {
+  .side-panel-premium,
+  .cloud-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1758,7 +1863,11 @@ th {
   .batch-card-header,
   .batch-card-footer,
   .admin-batch-actions,
-  .batch-inline-meta {
+  .batch-inline-meta,
+  .cloud-file-card,
+  .cloud-file-meta,
+  .cloud-file-actions,
+  .cloud-header-actions {
     flex-direction: column;
     align-items: stretch;
   }

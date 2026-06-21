@@ -1,4 +1,5 @@
 import { AdminPage } from "./pages/AdminPage";
+import { CloudPage } from "./pages/CloudPage";
 import { OrderListPage } from "./pages/OrderListPage";
 import { OrderPage } from "./pages/OrderPage";
 
@@ -7,6 +8,10 @@ export function App() {
 
   if (path.startsWith("/admin")) {
     return <AdminPage />;
+  }
+
+  if (path.startsWith("/cloud")) {
+    return <CloudPage />;
   }
 
   if (path.startsWith("/order/")) {

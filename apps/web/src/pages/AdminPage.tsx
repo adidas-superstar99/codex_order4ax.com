@@ -277,7 +277,10 @@ export function AdminPage() {
           <h1>SAMOO AX 음료/간식 주문</h1>
           <p>주문 묶음을 만들고, 브랜드별 주문과 집계를 한 화면에서 관리합니다.</p>
         </div>
-        <a className="admin-link" href="/">주문 목록</a>
+        <div className="cloud-header-actions">
+          <a className="admin-link" href="/cloud">Cloud</a>
+          <a className="admin-link" href="/">주문 목록</a>
+        </div>
       </section>
 
       <section className="dashboard-grid admin-dashboard-grid">

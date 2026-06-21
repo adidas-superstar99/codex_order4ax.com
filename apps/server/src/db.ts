@@ -100,6 +100,27 @@ export async function migrate() {
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_ordered_at ON orders(ordered_at);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);`);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS cloud_notes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS cloud_files (
+        id TEXT PRIMARY KEY,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        content BYTEA NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_cloud_notes_updated_at ON cloud_notes(updated_at DESC);`);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_cloud_files_created_at ON cloud_files(created_at DESC);`);
     return;
   }
 
@@ -155,6 +176,23 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
     CREATE INDEX IF NOT EXISTS idx_order_batches_status ON order_batches(status);
+
+    CREATE TABLE IF NOT EXISTS cloud_notes (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cloud_files (
+      id TEXT PRIMARY KEY,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      content BLOB NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
 
   const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
@@ -184,6 +222,8 @@ export async function migrate() {
 
   sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_orders_batch_id ON orders(batch_id);");
   sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_order_batches_source_external_id ON order_batches(source_external_id);");
+  sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_cloud_notes_updated_at ON cloud_notes(updated_at DESC);");
+  sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_cloud_files_created_at ON cloud_files(created_at DESC);");
 }
 
 export async function withPgTransaction<T>(callback: (client: PoolClient) => Promise<T>) {
