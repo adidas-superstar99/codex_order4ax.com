@@ -12,7 +12,18 @@ import {
   updateCloudNote
 } from "../services/cloudService.js";
 
+export const publicCloudRouter = Router();
 export const cloudRouter = Router();
+
+publicCloudRouter.get("/notes", async (_req: Request, res: Response) => {
+  try {
+    const notes = await listCloudNotes();
+    res.json(notes);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    res.status(500).json({ message });
+  }
+});
 
 cloudRouter.get("/", async (_req: Request, res: Response) => {
   try {

@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { migrate } from "./db.js";
-import { cloudRouter } from "./routes/cloud.js";
+import { cloudRouter, publicCloudRouter } from "./routes/cloud.js";
 import { adminRouter, requireAdmin } from "./routes/admin.js";
 import { integrationsRouter } from "./routes/integrations.js";
 import { menusRouter } from "./routes/menus.js";
@@ -33,6 +33,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use("/api/menus", menusRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/cloud", publicCloudRouter);
 app.use("/api/order-batches", publicOrderBatchesRouter);
 app.use("/api/orders", publicOrdersRouter);
 app.use("/api/orders", requireAdmin, ordersRouter);

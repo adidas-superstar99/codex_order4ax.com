@@ -1,4 +1,4 @@
-import { Download, FileText, Lock, PlusCircle, Save, Trash2, Upload } from "lucide-react";
+import { Download, FileText, Lock, PlusCircle, Save, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -7,6 +7,7 @@ import {
   deleteCloudNote,
   downloadCloudFile,
   fetchCloudState,
+  fetchPublicCloudNotes,
   updateCloudNote,
   uploadCloudFile
 } from "../api";
@@ -23,6 +24,7 @@ const emptyEditingNote: EditingNote = { title: "", content: "" };
 export function CloudPage() {
   const [password, setPassword] = useState(() => window.localStorage.getItem("adminPassword") ?? "1234");
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlockFormOpen, setIsUnlockFormOpen] = useState(false);
   const [notes, setNotes] = useState<CloudNote[]>([]);
   const [files, setFiles] = useState<CloudFile[]>([]);
   const [maxFileSizeBytes, setMaxFileSizeBytes] = useState(2 * 1024 * 1024);
@@ -33,30 +35,55 @@ export function CloudPage() {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   useEffect(() => {
-    if (isUnlocked) {
-      void loadCloud();
-    }
-  }, [isUnlocked]);
+    void loadPublicNotes();
+  }, []);
 
   const maxFileSizeLabel = useMemo(() => formatBytes(maxFileSizeBytes), [maxFileSizeBytes]);
 
-  async function loadCloud() {
-    setMessage("");
+  async function loadPublicNotes() {
     try {
-      const cloudState = await fetchCloudState(password);
-      setNotes(cloudState.notes);
-      setFiles(cloudState.files);
-      setMaxFileSizeBytes(cloudState.limits.maxFileSizeBytes);
+      const publicNotes = await fetchPublicCloudNotes();
+      setNotes(publicNotes);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "클라우드 화면을 불러오지 못했습니다.");
+      setMessage(error instanceof Error ? error.message : "메모 목록을 불러오지 못했습니다.");
+    }
+  }
+
+  async function loadAdminCloud(adminPassword = password) {
+    setMessage("");
+    const cloudState = await fetchCloudState(adminPassword);
+    setNotes(cloudState.notes);
+    setFiles(cloudState.files);
+    setMaxFileSizeBytes(cloudState.limits.maxFileSizeBytes);
+  }
+
+  async function handleUnlock(event: FormEvent) {
+    event.preventDefault();
+    try {
+      window.localStorage.setItem("adminPassword", password);
+      await loadAdminCloud(password);
+      setIsUnlocked(true);
+      setIsUnlockFormOpen(false);
+      setMessage("관리자 모드로 들어왔습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "관리자 모드로 들어오지 못했습니다.");
       setIsUnlocked(false);
     }
   }
 
-  function handleUnlock(event: FormEvent) {
-    event.preventDefault();
-    window.localStorage.setItem("adminPassword", password);
-    setIsUnlocked(true);
+  function closeUnlockForm() {
+    setIsUnlockFormOpen(false);
+    setMessage("");
+  }
+
+  function exitAdminMode() {
+    setIsUnlocked(false);
+    setIsUnlockFormOpen(false);
+    setIsEditorOpen(false);
+    setEditingNote(emptyEditingNote);
+    setFiles([]);
+    setMessage("관리자 모드를 종료했습니다.");
+    void loadPublicNotes();
   }
 
   function startNewNote() {
@@ -66,6 +93,7 @@ export function CloudPage() {
   }
 
   function startEditNote(note: CloudNote) {
+    if (!isUnlocked) return;
     setEditingNote({ id: note.id, title: note.title, content: note.content });
     setIsEditorOpen(true);
     setMessage(`"${note.title}" 메모를 수정하는 중입니다.`);
@@ -87,7 +115,7 @@ export function CloudPage() {
       const savedNote = editingNote.id
         ? await updateCloudNote(password, editingNote.id, payload)
         : await createCloudNote(password, payload);
-      await loadCloud();
+      await loadAdminCloud();
       setEditingNote({ id: savedNote.id, title: savedNote.title, content: savedNote.content });
       setIsEditorOpen(false);
       setMessage(editingNote.id ? "메모를 수정했습니다." : "메모를 저장했습니다.");
@@ -104,7 +132,7 @@ export function CloudPage() {
 
     try {
       await deleteCloudNote(password, noteId);
-      await loadCloud();
+      await loadAdminCloud();
       if (editingNote.id === noteId) {
         closeEditor();
       }
@@ -133,7 +161,7 @@ export function CloudPage() {
         sizeBytes: file.size,
         contentBase64
       });
-      await loadCloud();
+      await loadAdminCloud();
       setMessage(`${file.name} 파일을 업로드했습니다.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "파일 업로드에 실패했습니다.");
@@ -164,32 +192,11 @@ export function CloudPage() {
 
     try {
       await deleteCloudFile(password, fileId);
-      await loadCloud();
+      await loadAdminCloud();
       setMessage("파일을 삭제했습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "파일 삭제에 실패했습니다.");
     }
-  }
-
-  if (!isUnlocked) {
-    return (
-      <main className="admin-login">
-        <form onSubmit={handleUnlock}>
-          <p className="eyebrow">개인 클라우드</p>
-          <h1>order4ax 클라우드</h1>
-          <label className="field">
-            <span>관리자 비밀번호</span>
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          </label>
-          {message ? <p className="status-message">{message}</p> : null}
-          <button className="primary-button" type="submit">
-            <Lock size={18} />
-            클라우드 입장
-          </button>
-          <a className="text-link" href="/admin">관리자 화면으로</a>
-        </form>
-      </main>
-    );
   }
 
   return (
@@ -198,30 +205,66 @@ export function CloudPage() {
         <div>
           <p className="eyebrow">비공개 공간</p>
           <h1>클라우드</h1>
-          <p>메모와 작은 파일을 개인적으로 보관하는 비공개 공간입니다.</p>
+          <p>처음에는 메모 목록만 보이고, 관리자 모드에서 메모와 파일을 관리할 수 있습니다.</p>
         </div>
         <div className="cloud-header-actions">
-          <a className="admin-link" href="/admin">관리자</a>
+          {isUnlocked ? (
+            <button className="secondary-button" type="button" onClick={exitAdminMode}>
+              관리자 종료
+            </button>
+          ) : (
+            <button className="secondary-button" type="button" onClick={() => setIsUnlockFormOpen(true)}>
+              <Lock size={16} />
+              관리자 모드
+            </button>
+          )}
           <a className="admin-link" href="/">주문 목록</a>
         </div>
       </section>
 
       {message ? <p className="status-message">{message}</p> : null}
 
-      <section className="cloud-grid">
+      {isUnlockFormOpen && !isUnlocked ? (
+        <section className="dashboard-section">
+          <form className="cloud-note-editor" onSubmit={handleUnlock}>
+            <div className="section-heading-row compact">
+              <div>
+                <p className="section-kicker">관리자 모드</p>
+                <h3>비밀번호를 입력해 관리하기</h3>
+              </div>
+              <button className="secondary-button" type="button" onClick={closeUnlockForm}>
+                <X size={16} />
+                닫기
+              </button>
+            </div>
+            <label className="field">
+              <span>관리자 비밀번호</span>
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </label>
+            <button className="primary-button" type="submit">
+              <Lock size={16} />
+              관리자 모드 입장
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      <section className={isUnlocked ? "cloud-grid" : "dashboard-grid"}>
         <div className="dashboard-section">
           <div className="section-heading-row">
             <div>
               <p className="section-kicker">메모</p>
-              <h2>메모 보드</h2>
+              <h2>메모 리스트</h2>
             </div>
-            <button className="secondary-button" type="button" onClick={startNewNote}>
-              <PlusCircle size={16} />
-              새 메모
-            </button>
+            {isUnlocked ? (
+              <button className="secondary-button" type="button" onClick={startNewNote}>
+                <PlusCircle size={16} />
+                새 메모
+              </button>
+            ) : null}
           </div>
 
-          {isEditorOpen ? (
+          {isEditorOpen && isUnlocked ? (
             <form className="cloud-note-editor" onSubmit={handleSaveNote}>
               <div className="section-heading-row compact">
                 <div>
@@ -257,68 +300,89 @@ export function CloudPage() {
           ) : null}
 
           <div className="cloud-note-list">
-            {notes.length ? notes.map((note) => (
-              <article className="cloud-item-card" key={note.id}>
-                <button className="cloud-note-card" type="button" onClick={() => startEditNote(note)}>
-                  <strong>{note.title}</strong>
-                  <span>생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
-                  <span>수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
-                  <p>{note.content}</p>
-                </button>
-                <button className="secondary-button danger-button" type="button" onClick={() => handleDeleteNote(note.id)}>
-                  <Trash2 size={15} />
-                  삭제
-                </button>
-              </article>
-            )) : <div className="empty-state">아직 저장된 메모가 없습니다.</div>}
-          </div>
-        </div>
-
-        <div className="dashboard-section">
-          <div className="section-heading-row">
-            <div>
-              <p className="section-kicker">파일</p>
-              <h2>작은 파일 보관함</h2>
-            </div>
-            <label className="secondary-button cloud-upload-button">
-              <Upload size={16} />
-              {isUploadingFile ? "업로드 중..." : "파일 업로드"}
-              <input type="file" hidden onChange={handleFileChange} />
-            </label>
-          </div>
-
-          <p className="cloud-limit-text">파일 1개당 업로드 한도: {maxFileSizeLabel}</p>
-
-          <div className="cloud-file-list">
-            {files.length ? files.map((file) => (
-              <article className="cloud-item-card" key={file.id}>
-                <div className="cloud-file-card">
-                  <div className="cloud-file-main">
-                    <FileText size={18} />
-                    <div>
-                      <strong>{file.originalName}</strong>
-                      <span>{file.mimeType || "application/octet-stream"}</span>
+            {notes.length ? (
+              notes.map((note) => (
+                <article className="cloud-item-card" key={note.id}>
+                  {isUnlocked ? (
+                    <button className="cloud-note-card" type="button" onClick={() => startEditNote(note)}>
+                      <strong>{note.title}</strong>
+                      <span>생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
+                      <span>수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
+                      <p>{note.content}</p>
+                    </button>
+                  ) : (
+                    <div className="cloud-note-card">
+                      <strong>{note.title}</strong>
+                      <span>생성일 {new Date(note.createdAt).toLocaleString("ko-KR")}</span>
+                      <span>수정일 {new Date(note.updatedAt).toLocaleString("ko-KR")}</span>
+                      <p>{note.content}</p>
                     </div>
-                  </div>
-                  <div className="cloud-file-meta">
-                    <span>{formatBytes(file.sizeBytes)}</span>
-                    <span>{new Date(file.createdAt).toLocaleString("ko-KR")}</span>
-                  </div>
-                </div>
-                <div className="cloud-file-actions">
-                  <button className="secondary-button" type="button" onClick={() => handleDownloadFile(file)}>
-                    <Download size={15} />
-                    다운로드
-                  </button>
-                  <button className="secondary-button danger-button" type="button" onClick={() => handleDeleteFile(file.id)}>
-                    <Trash2 size={15} />
-                    삭제
-                  </button>
-                </div>
-              </article>
-            )) : <div className="empty-state">아직 저장된 파일이 없습니다.</div>}
+                  )}
+                  {isUnlocked ? (
+                    <button className="secondary-button danger-button" type="button" onClick={() => handleDeleteNote(note.id)}>
+                      <Trash2 size={15} />
+                      삭제
+                    </button>
+                  ) : null}
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">아직 저장된 메모가 없습니다.</div>
+            )}
           </div>
         </div>
+
+        {isUnlocked ? (
+          <div className="dashboard-section">
+            <div className="section-heading-row">
+              <div>
+                <p className="section-kicker">파일</p>
+                <h2>작은 파일 보관함</h2>
+              </div>
+              <label className="secondary-button cloud-upload-button">
+                <Upload size={16} />
+                {isUploadingFile ? "업로드 중..." : "파일 업로드"}
+                <input type="file" hidden onChange={handleFileChange} />
+              </label>
+            </div>
+
+            <p className="cloud-limit-text">파일 1개당 업로드 한도: {maxFileSizeLabel}</p>
+
+            <div className="cloud-file-list">
+              {files.length ? (
+                files.map((file) => (
+                  <article className="cloud-item-card" key={file.id}>
+                    <div className="cloud-file-card">
+                      <div className="cloud-file-main">
+                        <FileText size={18} />
+                        <div>
+                          <strong>{file.originalName}</strong>
+                          <span>{file.mimeType || "application/octet-stream"}</span>
+                        </div>
+                      </div>
+                      <div className="cloud-file-meta">
+                        <span>{formatBytes(file.sizeBytes)}</span>
+                        <span>{new Date(file.createdAt).toLocaleString("ko-KR")}</span>
+                      </div>
+                    </div>
+                    <div className="cloud-file-actions">
+                      <button className="secondary-button" type="button" onClick={() => handleDownloadFile(file)}>
+                        <Download size={15} />
+                        다운로드
+                      </button>
+                      <button className="secondary-button danger-button" type="button" onClick={() => handleDeleteFile(file.id)}>
+                        <Trash2 size={15} />
+                        삭제
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state">아직 저장된 파일이 없습니다.</div>
+              )}
+            </div>
+          </div>
+        ) : null}
       </section>
     </main>
   );

@@ -268,6 +268,12 @@ export async function fetchCloudState(password: string) {
   return response.json() as Promise<CloudState>;
 }
 
+export async function fetchPublicCloudNotes() {
+  const response = await fetch("/api/cloud/notes");
+  if (!response.ok) throw new Error("메모 목록을 불러오지 못했습니다.");
+  return response.json() as Promise<CloudNote[]>;
+}
+
 export async function createCloudNote(password: string, payload: { title: string; content: string }) {
   const response = await fetch("/api/admin/cloud/notes", {
     method: "POST",
