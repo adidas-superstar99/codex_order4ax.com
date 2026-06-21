@@ -264,7 +264,7 @@ export async function bulkUpdateStatus(
 
 export async function fetchCloudState(password: string) {
   const response = await fetch("/api/admin/cloud", { headers: adminHeaders(password) });
-  if (!response.ok) throw new Error("Cloud data could not be loaded.");
+  if (!response.ok) throw new Error("클라우드 데이터를 불러오지 못했습니다.");
   return response.json() as Promise<CloudState>;
 }
 
@@ -276,8 +276,8 @@ export async function createCloudNote(password: string, payload: { title: string
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud note could not be created." }));
-    throw new Error(error.message ?? "Cloud note could not be created.");
+    const error = await response.json().catch(() => ({ message: "메모를 생성하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "메모를 생성하지 못했습니다.");
   }
 
   return response.json() as Promise<CloudNote>;
@@ -291,8 +291,8 @@ export async function updateCloudNote(password: string, noteId: string, payload:
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud note could not be updated." }));
-    throw new Error(error.message ?? "Cloud note could not be updated.");
+    const error = await response.json().catch(() => ({ message: "메모를 수정하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "메모를 수정하지 못했습니다.");
   }
 
   return response.json() as Promise<CloudNote>;
@@ -305,8 +305,8 @@ export async function deleteCloudNote(password: string, noteId: string) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud note could not be deleted." }));
-    throw new Error(error.message ?? "Cloud note could not be deleted.");
+    const error = await response.json().catch(() => ({ message: "메모를 삭제하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "메모를 삭제하지 못했습니다.");
   }
 
   return response.json() as Promise<{ ok: true }>;
@@ -323,8 +323,8 @@ export async function uploadCloudFile(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud file could not be uploaded." }));
-    throw new Error(error.message ?? "Cloud file could not be uploaded.");
+    const error = await response.json().catch(() => ({ message: "파일을 업로드하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "파일을 업로드하지 못했습니다.");
   }
 
   return response.json() as Promise<CloudFile>;
@@ -337,8 +337,8 @@ export async function deleteCloudFile(password: string, fileId: string) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud file could not be deleted." }));
-    throw new Error(error.message ?? "Cloud file could not be deleted.");
+    const error = await response.json().catch(() => ({ message: "파일을 삭제하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "파일을 삭제하지 못했습니다.");
   }
 
   return response.json() as Promise<{ ok: true }>;
@@ -350,8 +350,8 @@ export async function downloadCloudFile(password: string, file: CloudFile) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Cloud file could not be downloaded." }));
-    throw new Error(error.message ?? "Cloud file could not be downloaded.");
+    const error = await response.json().catch(() => ({ message: "파일을 다운로드하지 못했습니다." }));
+    throw new Error(localizeCloudError(error.message) ?? "파일을 다운로드하지 못했습니다.");
   }
 
   return response.blob();
@@ -375,4 +375,35 @@ function appendAdminParams(
   if (params.date) url.searchParams.set("date", params.date);
   if (params.brand && params.brand !== "ALL") url.searchParams.set("brand", params.brand);
   if (params.status && params.status !== "ALL") url.searchParams.set("status", params.status);
+}
+
+function localizeCloudError(message?: string) {
+  switch (message) {
+    case "CLOUD_NOTE_TITLE_REQUIRED":
+      return "메모 제목을 입력해주세요.";
+    case "CLOUD_NOTE_CONTENT_REQUIRED":
+      return "메모 내용을 입력해주세요.";
+    case "CLOUD_NOTE_LIMIT_REACHED":
+      return "메모는 최대 100개까지 저장할 수 있습니다.";
+    case "CLOUD_NOTE_NOT_FOUND":
+      return "메모를 찾을 수 없습니다.";
+    case "CLOUD_FILE_NAME_REQUIRED":
+      return "파일 이름이 올바르지 않습니다.";
+    case "CLOUD_FILE_CONTENT_REQUIRED":
+      return "업로드할 파일 내용이 없습니다.";
+    case "CLOUD_FILE_SIZE_MISMATCH":
+      return "파일 크기 정보가 올바르지 않습니다.";
+    case "CLOUD_FILE_EMPTY":
+      return "빈 파일은 업로드할 수 없습니다.";
+    case "CLOUD_FILE_TOO_LARGE":
+      return "파일 용량이 너무 큽니다. 2MB 이하 파일만 업로드할 수 있습니다.";
+    case "CLOUD_FILE_LIMIT_REACHED":
+      return "파일은 최대 100개까지 저장할 수 있습니다.";
+    case "CLOUD_FILE_NOT_FOUND":
+      return "파일을 찾을 수 없습니다.";
+    case "UNAUTHORIZED":
+      return "관리자 비밀번호가 올바르지 않습니다.";
+    default:
+      return message;
+  }
 }

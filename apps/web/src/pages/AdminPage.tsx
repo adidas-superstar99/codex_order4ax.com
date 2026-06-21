@@ -278,7 +278,7 @@ export function AdminPage() {
           <p>주문 묶음을 만들고, 브랜드별 주문과 집계를 한 화면에서 관리합니다.</p>
         </div>
         <div className="cloud-header-actions">
-          <a className="admin-link" href="/cloud">Cloud</a>
+          <a className="admin-link" href="/cloud">클라우드</a>
           <a className="admin-link" href="/">주문 목록</a>
         </div>
       </section>
