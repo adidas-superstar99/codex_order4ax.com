@@ -28,14 +28,12 @@ const CATEGORY_CONFIG = [
   {
     category: "두유",
     url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000213543&shpp=ssgem",
-    leafSubcategory: "두유",
-    expectedCount: 56
+    leafSubcategory: "두유"
   },
   {
     category: "견과류",
     url: "https://emart.ssg.com/disp/category.ssg?dispCtgId=6000215179&shpp=ssgem",
-    leafSubcategory: "견과류",
-    expectedCount: 74
+    leafSubcategory: "견과류"
   }
 ];
 
@@ -50,60 +48,13 @@ const WEEKLY_DELIVERY_TYPE_CODES = new Set(["10"]);
 const WEEKLY_DELIVERY_DETAIL_CODES = new Set(["11"]);
 const WEEKLY_DELIVERY_STORE_NUMBERS = new Set(["2037"]);
 
-const FALLBACK_EMART_ITEMS = [
-  {
-    category: "과자/쿠키/파이",
-    subcategory: "파이/케익",
-    itemId: "1000823770998",
-    itemNm: "노브랜드 크레페프로 베리믹스 360g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000823770998&siteNo=6001&salestrNo=2037"
-  },
-  {
-    category: "과자/쿠키/파이",
-    subcategory: "일반과자",
-    itemId: "1000036235321",
-    itemNm: "자청 치즈그라탕 204g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000036235321&siteNo=6001&salestrNo=2037"
-  },
-  {
-    category: "사탕/캬라멜/껌",
-    subcategory: "껌",
-    itemId: "1000524029248",
-    itemNm: "자일리톨 오리지널 135g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000524029248&siteNo=6001&salestrNo=2037"
-  },
-  {
-    category: "사탕/캬라멜/껌",
-    subcategory: "하드캔디",
-    itemId: "1000529666140",
-    itemNm: "마이쮸 커피캔디 75g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000529666140&siteNo=6001&salestrNo=2037"
-  },
-  {
-    category: "초콜릿/초코바",
-    subcategory: "초코바",
-    itemId: "1000036684957",
-    itemNm: "닥터유 에너지바 445g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=1000036684957&siteNo=6001&salestrNo=2037"
-  },
-  {
-    category: "초콜릿/초코바",
-    subcategory: "초콜릿",
-    itemId: "0000008328762",
-    itemNm: "롯데 ABC초콜릿 187g",
-    itemUrl: "https://emart.ssg.com/item/itemView.ssg?itemId=0000008328762&siteNo=6001&salestrNo=2037"
-  }
-];
-
 async function main() {
   const [currentMenuData] = await Promise.all([readJson(OUTPUT_PATHS[0])]);
   const currentEmartMenus = currentMenuData.filter((menu) => menu.brand === "EMART");
   const fetchedEntryKeys = new Set();
 
   let emartMenus = [];
-  const orderedCategoryConfig = [...CATEGORY_CONFIG].sort(
-    (left, right) => Number(Boolean(right.expectedCount)) - Number(Boolean(left.expectedCount))
-  );
+  const orderedCategoryConfig = CATEGORY_CONFIG;
 
   for (const categoryConfig of orderedCategoryConfig) {
     try {
@@ -112,11 +63,17 @@ async function main() {
       for (const entry of entries) {
         try {
           const products = await fetchAllProducts(entry.url);
-          const limitedProducts = entry.expectedCount ? products.slice(0, entry.expectedCount) : products;
+          if (products.length === 0) throw new Error("No weekly-delivery products found");
+          const previousCount = currentEmartMenus.filter(
+            (menu) => menu.category === categoryConfig.category && menu.subcategory === entry.subcategory
+          ).length;
+          if (previousCount > 0 && products.length < previousCount / 2) {
+            throw new Error(`Incomplete weekly-delivery list: ${products.length} vs ${previousCount} existing`);
+          }
           const timestamp = new Date().toISOString();
           fetchedEntryKeys.add(getEntryKey(categoryConfig.category, entry.subcategory));
 
-          limitedProducts.forEach((product, index) => {
+          products.forEach((product, index) => {
             emartMenus.push({
               id: `emart-${getDispCategoryId(entry.url)}-${slugify(entry.subcategory)}-${product.itemId}`,
               brand: "EMART",
@@ -147,8 +104,7 @@ async function main() {
   }
 
   if (emartMenus.length === 0) {
-    console.warn("EMART live fetch produced no items. Falling back to seed snapshot.");
-    emartMenus = buildFallbackMenus();
+    throw new Error("EMART live fetch produced no verified weekly-delivery items; snapshots were not changed");
   }
 
   const nonEmartMenus = currentMenuData.filter((menu) => menu.brand !== "EMART");
@@ -169,7 +125,7 @@ async function resolveCategoryEntries(categoryConfig) {
     const url = new URL(categoryConfig.url);
     url.searchParams.set("shpp", "ssgem");
     url.searchParams.set("sort", "sale");
-    return [{ subcategory: categoryConfig.leafSubcategory, url: url.toString(), expectedCount: categoryConfig.expectedCount }];
+    return [{ subcategory: categoryConfig.leafSubcategory, url: url.toString() }];
   }
 
   const rootHtml = await fetchHtml(categoryConfig.url);
@@ -206,15 +162,7 @@ async function fetchAllProducts(categoryUrl) {
     nextUrl.searchParams.set("shpp", "ssgem");
     nextUrl.searchParams.set("sort", "sale");
 
-    let html;
-    try {
-      html = await fetchHtml(nextUrl.toString());
-    } catch (error) {
-      if (products.length > 0) {
-        break;
-      }
-      throw error;
-    }
+    const html = await fetchHtml(nextUrl.toString());
     const pageProducts = parseProducts(html);
 
     if (!pageProducts.length) break;
@@ -328,23 +276,6 @@ function dedupeMenus(menus) {
 
 function getDispCategoryId(url) {
   return new URL(url).searchParams.get("dispCtgId") ?? "unknown";
-}
-
-function buildFallbackMenus() {
-  const timestamp = new Date().toISOString();
-  return FALLBACK_EMART_ITEMS.map((item, index) => ({
-    id: `emart-seed-${slugify(item.subcategory)}-${item.itemId}`,
-    brand: "EMART",
-    category: item.category,
-    subcategory: item.subcategory,
-    name: item.itemNm,
-    imageUrl: buildImageUrl(item.itemId),
-    sourceUrl: item.itemUrl,
-    salesRank: index + 1,
-    availableSizes: ["단일"],
-    createdAt: timestamp,
-    updatedAt: timestamp
-  }));
 }
 
 function buildImageUrl(itemId) {
