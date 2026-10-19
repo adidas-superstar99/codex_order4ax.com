@@ -67,10 +67,12 @@ main { padding: 22px 0 72px; }
 .feature-tags span { padding: 6px 9px; border-radius: 6px; background: #f3f4f5; color: #686f77; font-size: 12px; }
 .video-wrap iframe { display: block; width: 100%; height: 100%; border: 0; }
 .video-modal-open { overflow: hidden; }
-.video-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 16px; background: rgba(7, 18, 22, .88); }
-.video-modal-panel { width: min(1100px, calc(100vw - 32px), calc((100dvh - 144px) * 16 / 9)); min-width: min(100%, 280px); color: #fff; }
+.video-modal { width: fit-content; max-width: calc(100vw - 32px); max-height: calc(100dvh - 24px); margin: auto; padding: 0; border: 0; background: transparent; overflow: auto; }
+.video-modal::backdrop { background: rgba(7, 18, 22, .9); }
+.video-modal-panel { width: min(1200px, calc(100vw - 32px), calc((100dvh - 136px) * 16 / 9)); min-width: min(calc(100vw - 32px), 280px); color: #fff; }
 .video-modal-bar, .video-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .video-modal-bar { min-height: 48px; padding: 0 2px; font-size: 17px; }
+.video-modal-bar strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-modal-close { width: 40px; height: 40px; border: 0; background: transparent; color: #fff; font-size: 32px; line-height: 1; cursor: pointer; }
 .video-modal-screen { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
 .video-modal-screen iframe { display: block; width: 100%; height: 100%; border: 0; }
