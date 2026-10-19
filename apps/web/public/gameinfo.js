@@ -11,7 +11,16 @@ const videoThumbnails = {
   "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-thumbnail.jpg"
 };
 const siteVideos = {
-  "1ekZGzVqd2Qf12FWe_Z1U32uI-8uZKlk9": "/gameinfo-assets/familycraft-promo.mp4"
+  "1jTYEKNJHahATnsJPTvvXXf2wAKnnHs3o": "/gameinfo-assets/minekart-promo.mp4",
+  "1WjXW0Pj-fWl9N_n9CBTrWwnkP1F527EC": "/gameinfo-assets/marioslug-promo.mp4",
+  "15zcKVVe9fJiEiE6qhmXWS985-6Fqj5Jf": "/gameinfo-assets/animalhospital-promo.mp4",
+  "1ekZGzVqd2Qf12FWe_Z1U32uI-8uZKlk9": "/gameinfo-assets/familycraft-promo.mp4",
+  "15_HEi_vkdHntdyQ3OccNdzWAhKWyvp9F": "/gameinfo-assets/prophunt-promo.mp4",
+  "1CUY6CuLLzPrm7UzRZ05dgKnUEUQSYAyr": "/gameinfo-assets/superdrako-promo.mp4",
+  "12CEBMV9IDZioAunbx3OtdtdWDFwTsoZn": "/gameinfo-assets/rivalarena-promo.mp4",
+  "1zM96WjE50-BmXdsLfBQBqudWUQOXRHkb": "/gameinfo-assets/siyoung-dungeon-promo.mp4",
+  "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-promo.mp4",
+  "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-promo.mp4"
 };
 
 const videoDialog = document.createElement("dialog");
@@ -38,8 +47,9 @@ let lastVideoButton;
 
 videoDialog.querySelector(".video-modal-close").addEventListener("click", () => videoDialog.close());
 videoDialog.querySelector(".video-modal-fullscreen").addEventListener("click", () => {
-  const player = videoScreen.querySelector("iframe");
+  const player = videoScreen.querySelector("video, iframe");
   if (player?.requestFullscreen) player.requestFullscreen();
+  else if (player?.webkitEnterFullscreen) player.webkitEnterFullscreen();
 });
 videoDialog.addEventListener("click", (event) => {
   if (event.target === videoDialog) videoDialog.close();
@@ -50,6 +60,37 @@ videoDialog.addEventListener("close", () => {
   document.body.classList.remove("video-modal-open");
   lastVideoButton?.focus();
 });
+
+function createLoadingCover(player, thumbnail) {
+  const cover = document.createElement("div");
+  cover.className = "video-modal-loading";
+
+  const image = document.createElement("img");
+  image.src = thumbnail;
+  image.alt = "";
+
+  const content = document.createElement("div");
+  content.className = "video-modal-loading-content";
+  const message = document.createElement("span");
+  message.textContent = "영상 준비 중…";
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.textContent = "▶ 재생";
+  retry.addEventListener("click", () => {
+    player.play().catch(() => {
+      message.textContent = "재생이 안 되면 아래 원본 파일 링크를 이용해 주세요.";
+    });
+  });
+
+  content.append(message, retry);
+  cover.append(image, content);
+  player.addEventListener("playing", () => cover.remove(), { once: true });
+  player.addEventListener("error", () => {
+    message.textContent = "영상을 불러오지 못했습니다. 아래 원본 파일을 열어 주세요.";
+    retry.hidden = true;
+  });
+  return { cover, message };
+}
 
 function openVideo(videoUrl, videoId, thumbnail, title, button) {
   const siteVideo = siteVideos[videoId];
@@ -70,12 +111,15 @@ function openVideo(videoUrl, videoId, thumbnail, title, button) {
 
   videoTitle.textContent = title;
   driveLink.href = videoUrl.replace(/\/preview(?:\?.*)?$/, "/view");
-  videoScreen.replaceChildren(player);
+  const loading = siteVideo ? createLoadingCover(player, thumbnail) : null;
+  videoScreen.replaceChildren(player, ...(loading ? [loading.cover] : []));
   lastVideoButton = button;
   document.body.classList.add("video-modal-open");
   videoDialog.showModal();
   videoDialog.querySelector(".video-modal-close").focus();
-  if (siteVideo) player.play().catch(() => {});
+  if (siteVideo) player.play().catch(() => {
+    loading.message.textContent = "자동 재생이 막혔습니다. 재생 버튼을 눌러 주세요.";
+  });
 }
 
 document.querySelectorAll(".game-card .video-wrap iframe").forEach((frame) => {
