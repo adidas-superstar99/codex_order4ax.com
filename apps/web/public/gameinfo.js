@@ -10,6 +10,9 @@ const videoThumbnails = {
   "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-thumbnail.jpg",
   "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-thumbnail.jpg"
 };
+const siteVideos = {
+  "1ekZGzVqd2Qf12FWe_Z1U32uI-8uZKlk9": "/gameinfo-assets/familycraft-promo.mp4"
+};
 
 const videoDialog = document.createElement("dialog");
 videoDialog.className = "video-modal";
@@ -23,7 +26,7 @@ videoDialog.innerHTML = `
     <div class="video-modal-screen"></div>
     <div class="video-modal-footer">
       <button class="video-modal-fullscreen" type="button">전체 화면으로 보기</button>
-      <a class="video-modal-drive" target="_blank" rel="noopener noreferrer">Google Drive에서 보기 ↗</a>
+      <a class="video-modal-drive" target="_blank" rel="noopener noreferrer">재생이 안 되나요? 원본 파일 열기 ↗</a>
     </div>
   </div>`;
 document.body.append(videoDialog);
@@ -42,18 +45,28 @@ videoDialog.addEventListener("click", (event) => {
   if (event.target === videoDialog) videoDialog.close();
 });
 videoDialog.addEventListener("close", () => {
-  videoScreen.replaceChildren(); // Removing the iframe stops playback.
+  videoScreen.querySelector("video")?.pause();
+  videoScreen.replaceChildren(); // Removing the player stops playback.
   document.body.classList.remove("video-modal-open");
   lastVideoButton?.focus();
 });
 
-function openVideo(videoUrl, title, button) {
-  const player = document.createElement("iframe");
-  player.src = `${videoUrl}?autoplay=1`;
+function openVideo(videoUrl, videoId, thumbnail, title, button) {
+  const siteVideo = siteVideos[videoId];
+  const player = document.createElement(siteVideo ? "video" : "iframe");
+  player.src = siteVideo || `${videoUrl}?autoplay=1`;
   player.title = title;
-  player.allow = "autoplay; fullscreen; picture-in-picture";
-  player.allowFullscreen = true;
-  player.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+  if (siteVideo) {
+    player.controls = true;
+    player.autoplay = true;
+    player.playsInline = true;
+    player.preload = "auto";
+    player.poster = thumbnail;
+  } else {
+    player.allow = "autoplay; fullscreen; picture-in-picture";
+    player.allowFullscreen = true;
+    player.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+  }
 
   videoTitle.textContent = title;
   driveLink.href = videoUrl.replace(/\/preview(?:\?.*)?$/, "/view");
@@ -62,6 +75,7 @@ function openVideo(videoUrl, title, button) {
   document.body.classList.add("video-modal-open");
   videoDialog.showModal();
   videoDialog.querySelector(".video-modal-close").focus();
+  if (siteVideo) player.play().catch(() => {});
 }
 
 document.querySelectorAll(".game-card .video-wrap iframe").forEach((frame) => {
@@ -90,5 +104,5 @@ document.querySelectorAll(".game-card .video-wrap iframe").forEach((frame) => {
   button.append(image, play);
   wrapper.replaceChildren(button);
 
-  button.addEventListener("click", () => openVideo(videoUrl, title, button));
+  button.addEventListener("click", () => openVideo(videoUrl, videoId, thumbnail, title, button));
 });
