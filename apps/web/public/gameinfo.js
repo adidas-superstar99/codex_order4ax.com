@@ -8,7 +8,8 @@ const videoThumbnails = {
   "12CEBMV9IDZioAunbx3OtdtdWDFwTsoZn": "/gameinfo-assets/rivalarena-thumbnail.jpg",
   "1zM96WjE50-BmXdsLfBQBqudWUQOXRHkb": "/gameinfo-assets/siyoung-dungeon-thumbnail.jpg",
   "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-thumbnail.jpg",
-  "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-thumbnail.jpg"
+  "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-thumbnail.jpg",
+  "13Lx_5kxmsadPSzDPqIuvra1K4b9GgvUp": "/gameinfo-assets/anisoccer-thumbnail.jpg"
 };
 const siteVideos = {
   "1jTYEKNJHahATnsJPTvvXXf2wAKnnHs3o": "/gameinfo-assets/minekart-promo.mp4",
@@ -20,7 +21,8 @@ const siteVideos = {
   "12CEBMV9IDZioAunbx3OtdtdWDFwTsoZn": "/gameinfo-assets/rivalarena-promo.mp4",
   "1zM96WjE50-BmXdsLfBQBqudWUQOXRHkb": "/gameinfo-assets/siyoung-dungeon-promo.mp4",
   "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-promo.mp4",
-  "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-promo.mp4"
+  "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-promo.mp4",
+  "13Lx_5kxmsadPSzDPqIuvra1K4b9GgvUp": "/gameinfo-assets/anisoccer-promo.mp4"
 };
 
 const videoDialog = document.createElement("dialog");
