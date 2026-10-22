@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>시영TV 게임 채널 운영</title>
+    <link rel="stylesheet" href="/sytv-manage.css?v=20261022" />
+    <script src="/sytv-manage.js?v=20261022" defer></script>
+  </head>
+  <body>
+    <main class="manage-shell">
+      <header><a href="/sytv">← 게임 채널로 돌아가기</a><h1>시영TV 게임 채널 운영</h1><p>방문자 수와 댓글을 확인할 수 있습니다.</p></header>
+      <form id="admin-form" class="admin-form">
+        <label for="admin-password">관리자 비밀번호</label>
+        <div class="login-row"><input id="admin-password" type="password" required autocomplete="current-password" placeholder="기존 관리자 비밀번호" /><button type="submit">확인</button></div>
+        <p id="admin-message" role="status" aria-live="polite"></p>
+      </form>
+      <div id="dashboard" hidden>
+        <section class="stats-panel" aria-labelledby="stats-title">
+          <div class="section-top"><h2 id="stats-title">방문 현황</h2><div><label for="stats-day">날짜</label><input id="stats-day" type="date" /><button id="refresh-stats" type="button">새로고침</button></div></div>
+          <div class="stat-grid"><div class="stat-card"><strong id="visitor-count">0</strong><span>선택한 날의 순방문 브라우저</span></div><div class="stat-card"><strong id="published-count">0</strong><span>누적 공개 댓글</span></div><div class="stat-card"><strong id="pending-count">0</strong><span>검토 대기 댓글</span></div></div>
+          <p class="stat-note">방문자 수는 집계를 시작한 이후의 기록입니다. 같은 브라우저는 하루에 한 번만 셉니다.</p>
+        </section>
+        <section class="moderation-panel" aria-labelledby="moderation-title"><h2 id="moderation-title">댓글 관리</h2><div id="admin-comments"></div></section>
+      </div>
+    </main>
+  </body>
+</html>

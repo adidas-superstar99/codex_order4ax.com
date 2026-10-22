@@ -152,3 +152,95 @@ document.querySelectorAll(".game-card .video-wrap iframe").forEach((frame) => {
 
   button.addEventListener("click", () => openVideo(videoUrl, videoId, thumbnail, title, button));
 });
+
+function getVisitorId() {
+  try {
+    let id = localStorage.getItem("sytvVisitorId");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("sytvVisitorId", id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+fetch("/api/sytv/visit", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ visitorId: getVisitorId() }),
+  keepalive: true
+}).catch(() => {});
+
+const commentForm = document.querySelector("#comment-form");
+const commentList = document.querySelector("#comment-list");
+const commentCount = document.querySelector("#comment-count");
+const commentMessage = document.querySelector("#comment-message");
+
+function renderComments(comments) {
+  commentList.replaceChildren();
+  commentCount.textContent = comments.length === 100 ? "최근 댓글 100개" : `댓글 ${comments.length}개`;
+  if (!comments.length) {
+    const empty = document.createElement("p");
+    empty.className = "comment-empty";
+    empty.textContent = "첫 댓글을 남겨주세요!";
+    commentList.append(empty);
+    return;
+  }
+  const dateFormat = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  for (const comment of comments) {
+    const article = document.createElement("article");
+    article.className = "comment-item";
+    const head = document.createElement("div");
+    head.className = "comment-item-head";
+    const nickname = document.createElement("strong");
+    nickname.textContent = comment.nickname;
+    const date = document.createElement("time");
+    date.dateTime = comment.createdAt;
+    date.textContent = dateFormat.format(new Date(comment.createdAt));
+    const body = document.createElement("p");
+    body.textContent = comment.body;
+    head.append(nickname, date);
+    article.append(head, body);
+    commentList.append(article);
+  }
+}
+
+async function loadComments() {
+  try {
+    const response = await fetch("/api/sytv/comments", { cache: "no-store" });
+    if (!response.ok) throw new Error();
+    renderComments(await response.json());
+  } catch {
+    commentList.textContent = "댓글을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.";
+  }
+}
+
+commentForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submit = commentForm.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  commentMessage.textContent = "";
+  const data = new FormData(commentForm);
+  try {
+    const response = await fetch("/api/sytv/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: data.get("nickname"), body: data.get("body"), website: data.get("website") })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "댓글을 등록하지 못했습니다.");
+    commentForm.querySelector("#comment-body").value = "";
+    commentMessage.textContent = result.pending ? "댓글이 등록되었습니다. 운영자 확인 후 공개됩니다." : "댓글이 등록되었습니다.";
+    await loadComments();
+  } catch (error) {
+    commentMessage.textContent = error.message || "댓글을 등록하지 못했습니다.";
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+loadComments();

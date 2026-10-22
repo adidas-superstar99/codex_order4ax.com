@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { config } from "../config.js";
 import { ordersRouter } from "./orders.js";
+import { adminSytvRouter } from "./sytv.js";
 
 export const adminRouter = Router();
 
@@ -16,3 +17,4 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
 adminRouter.use(requireAdmin);
 adminRouter.use("/orders", ordersRouter);
+adminRouter.use("/sytv", adminSytvRouter);

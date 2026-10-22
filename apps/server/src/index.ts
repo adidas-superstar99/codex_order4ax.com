@@ -12,6 +12,7 @@ import { integrationsRouter } from "./routes/integrations.js";
 import { menusRouter } from "./routes/menus.js";
 import { adminOrderBatchesRouter, publicOrderBatchesRouter } from "./routes/orderBatches.js";
 import { ordersRouter, publicOrdersRouter } from "./routes/orders.js";
+import { publicSytvRouter } from "./routes/sytv.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const candidateWebDistPaths = [
@@ -36,6 +37,7 @@ app.use("/api/integrations", integrationsRouter);
 app.use("/api/cloud", publicCloudRouter);
 app.use("/api/order-batches", publicOrderBatchesRouter);
 app.use("/api/orders", publicOrdersRouter);
+app.use("/api/sytv", publicSytvRouter);
 app.use("/api/orders", requireAdmin, ordersRouter);
 app.use("/api/admin/order-batches", requireAdmin, adminOrderBatchesRouter);
 app.use("/api/admin/cloud", requireAdmin, cloudRouter);
@@ -45,6 +47,9 @@ if (webDistPath) {
   app.use(express.static(webDistPath));
   app.get(["/sytv", "/sytv/", "/gameinfo", "/gameinfo/"], (_req: Request, res: Response) => {
     res.sendFile(join(webDistPath, "gameinfo.html"));
+  });
+  app.get(["/sytv/manage", "/sytv/manage/"], (_req: Request, res: Response) => {
+    res.sendFile(join(webDistPath, "sytv-manage.html"));
   });
   app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
     res.sendFile(join(webDistPath, "index.html"));

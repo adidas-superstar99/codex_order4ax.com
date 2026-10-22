@@ -121,6 +121,24 @@ export async function migrate() {
     `);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_cloud_notes_updated_at ON cloud_notes(updated_at DESC);`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_cloud_files_created_at ON cloud_files(created_at DESC);`);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS sytv_visits (
+        visit_day TEXT NOT NULL,
+        visitor_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (visit_day, visitor_hash)
+      );
+    `);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS sytv_comments (
+        id TEXT PRIMARY KEY,
+        nickname TEXT NOT NULL,
+        body TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'published',
+        created_at TEXT NOT NULL
+      );
+    `);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_sytv_comments_created_at ON sytv_comments(created_at DESC);`);
     return;
   }
 
@@ -193,6 +211,23 @@ export async function migrate() {
       content BLOB NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS sytv_visits (
+      visit_day TEXT NOT NULL,
+      visitor_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (visit_day, visitor_hash)
+    );
+
+    CREATE TABLE IF NOT EXISTS sytv_comments (
+      id TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL,
+      body TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'published',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sytv_comments_created_at ON sytv_comments(created_at DESC);
   `);
 
   const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
