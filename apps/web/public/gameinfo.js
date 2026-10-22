@@ -27,6 +27,115 @@ const siteVideos = {
   "13-WpJunzCGLE_5DWj6ULpn3xNLRhM5qO": "/gameinfo-assets/monsterisle-promo.mp4"
 };
 
+// Stills come from the games' own promotional videos, so each description has a visible example.
+const gameScenes = {
+  minekart: {
+    still: "minekart",
+    captions: ["드리프트로 트랙의 코너를 공략해요.", "점프 구간에서는 카트가 하늘로 날아오릅니다."],
+    tags: ["#레이싱", "#멀티플레이", "#아이템대전", "#드리프트"]
+  },
+  familycraft: {
+    still: "familycraft",
+    captions: ["블록으로 펼쳐진 세계를 자유롭게 둘러보세요.", "가족 캐릭터와 함께 모험을 이어가요."],
+    tags: ["#크래프트", "#블록탐험", "#가족협동", "#모험"]
+  },
+  animalhospital: {
+    still: "animalhospital",
+    captions: ["병원에 찾아온 오늘의 손님들을 살펴보세요.", "단서를 살펴 동물 속에 숨은 괴물을 찾아내요."],
+    tags: ["#미스터리", "#추리", "#동물찾기", "#가족협동"]
+  },
+  marioslug: {
+    still: "marioslug",
+    captions: ["10개 미션의 여러 지역을 돌파해요.", "탈것에 올라 적을 향해 화력을 쏟아부어요."],
+    tags: ["#픽셀액션", "#횡스크롤슈팅", "#2인협동", "#미션"]
+  },
+  prophunt: {
+    still: "prophunt",
+    captions: ["나무 등 사물로 변신해 숨어요.", "맵을 돌아다니며 숨어 있는 친구를 찾아보세요."],
+    tags: ["#숨바꼭질", "#변신게임", "#멀티플레이", "#파티게임"]
+  },
+  koopaworld: {
+    still: "superdrako",
+    captions: ["사막 지형에서 적과 장애물을 넘어가요.", "성을 향해 나아가며 새로운 구간에 도전해요."],
+    tags: ["#픽셀플랫포머", "#모험", "#액션", "#보스전"]
+  },
+  rival: {
+    still: "rivalarena",
+    captions: ["여러 맵에서 상대를 겨냥하는 슈팅 대전.", "좀비 모드에서 가족과 함께 버텨보세요."],
+    tags: ["#아레나슈팅", "#좀비모드", "#가족대전", "#멀티플레이"]
+  },
+  dungeon: {
+    still: "siyoung-dungeon",
+    captions: ["넓은 블록 월드의 탐험 경로를 살펴보세요.", "장비를 고르고 던전의 적과 맞서요."],
+    tags: ["#던전탐험", "#RPG", "#협동", "#전투"]
+  },
+  doors: {
+    still: "doors",
+    captions: ["어두운 복도를 따라 다음 문을 찾아 나아가요.", "숨어 있는 괴물을 피해 살아남아야 해요."],
+    tags: ["#호러어드벤처", "#탈출", "#생존", "#협동"]
+  },
+  tower: {
+    still: "tower",
+    captions: ["장애물을 피해 점프하며 위로 올라가요.", "친구와 누가 먼저 꼭대기에 닿는지 겨뤄요."],
+    tags: ["#파쿠르", "#점프액션", "#장애물", "#멀티플레이"]
+  },
+  anisoccer: {
+    still: "anisoccer",
+    captions: ["캐릭터들이 경기장에서 축구 대결을 펼쳐요.", "필살기로 경기 흐름을 뒤집어 보세요."],
+    tags: ["#축구", "#스포츠대전", "#필살기", "#멀티플레이"]
+  },
+  monsterisle: {
+    still: "monsterisle",
+    captions: ["괴수 섬의 숲을 탐험하며 목표를 찾아요.", "약점을 겨냥해 거대한 보스와 싸워요."],
+    tags: ["#협동건슈팅", "#보스전", "#괴수섬", "#탐험"]
+  }
+};
+
+document.querySelectorAll(".game-card").forEach((card) => {
+  const slug = card.querySelector(".download-button")?.getAttribute("href")?.split("/").pop();
+  const scene = gameScenes[slug];
+  const name = card.querySelector("h3")?.textContent?.trim();
+  const videoWrap = card.querySelector(".video-wrap");
+  if (!scene || !name || !videoWrap) return;
+
+  const gallery = document.createElement("section");
+  gallery.className = "scene-gallery";
+  gallery.setAttribute("aria-label", `${name} 플레이 장면`);
+  const heading = document.createElement("h4");
+  heading.textContent = "게임 속 장면";
+  const list = document.createElement("div");
+  list.className = "scene-list";
+  scene.captions.forEach((caption, index) => {
+    const figure = document.createElement("figure");
+    const image = document.createElement("img");
+    image.src = `/gameinfo-assets/stills/${scene.still}-${index + 1}.webp`;
+    image.alt = `${name} 플레이 장면 ${index + 1}`;
+    image.width = 960;
+    image.height = 540;
+    image.loading = "lazy";
+    image.decoding = "async";
+    const description = document.createElement("figcaption");
+    description.textContent = caption;
+    figure.append(image, description);
+    list.append(figure);
+  });
+  gallery.append(heading, list);
+  videoWrap.after(gallery);
+
+  const tags = card.querySelector(".feature-tags") || document.createElement("div");
+  tags.className = "feature-tags";
+  tags.setAttribute("aria-label", `${name} 장르와 특징`);
+  const label = document.createElement("span");
+  label.className = "feature-tags-label";
+  label.textContent = "장르 · 특징";
+  tags.replaceChildren(label, ...scene.tags.map((tag) => {
+    const span = document.createElement("span");
+    span.textContent = tag;
+    return span;
+  }));
+  card.append(tags);
+});
+
 const videoDialog = document.createElement("dialog");
 videoDialog.className = "video-modal";
 videoDialog.setAttribute("aria-labelledby", "video-modal-title");
