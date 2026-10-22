@@ -139,6 +139,23 @@ export async function migrate() {
       );
     `);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_sytv_comments_created_at ON sytv_comments(created_at DESC);`);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS sytv_download_counts (
+        game_id TEXT NOT NULL,
+        download_day TEXT NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (game_id, download_day)
+      );
+    `);
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS sytv_reactions (
+        game_id TEXT NOT NULL,
+        visitor_hash TEXT NOT NULL,
+        reaction TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (game_id, visitor_hash)
+      );
+    `);
     return;
   }
 
@@ -228,6 +245,21 @@ export async function migrate() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_sytv_comments_created_at ON sytv_comments(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS sytv_download_counts (
+      game_id TEXT NOT NULL,
+      download_day TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (game_id, download_day)
+    );
+
+    CREATE TABLE IF NOT EXISTS sytv_reactions (
+      game_id TEXT NOT NULL,
+      visitor_hash TEXT NOT NULL,
+      reaction TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (game_id, visitor_hash)
+    );
   `);
 
   const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;

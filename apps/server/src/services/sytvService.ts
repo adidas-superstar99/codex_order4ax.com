@@ -11,12 +11,33 @@ export type SytvComment = {
   createdAt: string;
 };
 
-type LocalSytvStore = { visits: Array<{ day: string; hash: string }>; comments: SytvComment[] };
+export const sytvGameFiles = {
+  minekart: "1wI8aU2MCSqbJkf30X3GoVxev3xYA_VIB",
+  familycraft: "1iQO6__Aq0SBn-Ouvk2_yz_XekYVJRzeX",
+  animalhospital: "1orcoPcPgMpmsOP6eKyGpX9NkLTCzeZ95",
+  marioslug: "1xGFpwdNLe1FTkPFQXPGfibTcs4JEeyrT",
+  prophunt: "1BlpktlmBYGnNhrpkSAd7LXJgVO6dhAaZ",
+  koopaworld: "1iqhIGYcurdN4BBtG2BIaHNkee28hiIqp",
+  rival: "1aQnRFRARF9FzVoEDy8g2r8DqCUrnwNU5",
+  dungeon: "1fyi3UfP0vc6qt21skovCKyJkOJ12yxLK",
+  doors: "1QALC-zPzHJ6QAbjS6RU6FRNrlz8R1M6V",
+  tower: "1uTgYzDywPRn8TwN7nyrjLZ5Zorxrma22",
+  anisoccer: "1cd52Gz9lKMR9krgVO1xgkTHIb5cQ0TBP"
+} as const;
+export type SytvGameId = keyof typeof sytvGameFiles;
+export type SytvReaction = "heart" | "clap" | "fire";
+type LocalSytvStore = {
+  visits: Array<{ day: string; hash: string }>;
+  comments: SytvComment[];
+  downloads: Array<{ gameId: string; day: string; count: number }>;
+  reactions: Array<{ gameId: string; hash: string; reaction: SytvReaction }>;
+};
 const localPath = join(process.cwd(), "data/sytv-store.json");
 
 function readLocal(): LocalSytvStore {
-  if (!existsSync(localPath)) return { visits: [], comments: [] };
-  return JSON.parse(readFileSync(localPath, "utf8")) as LocalSytvStore;
+  if (!existsSync(localPath)) return { visits: [], comments: [], downloads: [], reactions: [] };
+  const stored = JSON.parse(readFileSync(localPath, "utf8")) as Partial<LocalSytvStore>;
+  return { visits: stored.visits ?? [], comments: stored.comments ?? [], downloads: stored.downloads ?? [], reactions: stored.reactions ?? [] };
 }
 
 function writeLocal(store: LocalSytvStore) {
@@ -33,10 +54,110 @@ export function seoulDay(date = new Date()) {
   }).format(date);
 }
 
-export async function recordSytvVisit(visitorId: string) {
+export function isSytvGameId(value: string): value is SytvGameId {
+  return Object.hasOwn(sytvGameFiles, value);
+}
+
+export function validateSytvVisitorId(visitorId: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitorId)) {
     throw new Error("방문 식별값이 올바르지 않습니다.");
   }
+}
+
+export async function recordSytvDownload(gameId: SytvGameId) {
+  const day = seoulDay();
+  if (pgPool) {
+    await pgPool.query(`INSERT INTO sytv_download_counts (game_id, download_day, count) VALUES ($1, $2, 1)
+      ON CONFLICT (game_id, download_day) DO UPDATE SET count = sytv_download_counts.count + 1`, [gameId, day]);
+  } else if (sqliteDb) {
+    sqliteDb.prepare(`INSERT INTO sytv_download_counts (game_id, download_day, count) VALUES (?, ?, 1)
+      ON CONFLICT (game_id, download_day) DO UPDATE SET count = count + 1`).run(gameId, day);
+  } else {
+    const store = readLocal();
+    const existing = store.downloads.find((item) => item.gameId === gameId && item.day === day);
+    if (existing) existing.count += 1;
+    else store.downloads.push({ gameId, day, count: 1 });
+    writeLocal(store);
+  }
+  return `https://drive.google.com/uc?export=download&id=${sytvGameFiles[gameId]}`;
+}
+
+export async function getSytvGameStats() {
+  const day = seoulDay();
+  const games: Record<string, { today: number; total: number; reactions: Record<SytvReaction, number> }> = {};
+  for (const gameId of Object.keys(sytvGameFiles)) {
+    games[gameId] = { today: 0, total: 0, reactions: { heart: 0, clap: 0, fire: 0 } };
+  }
+  if (pgPool) {
+    const [downloads, reactions] = await Promise.all([
+      pgPool.query<{ game_id: string; today: string; total: string }>(
+        `SELECT game_id, COALESCE(SUM(CASE WHEN download_day = $1 THEN count ELSE 0 END), 0) AS today,
+          SUM(count) AS total FROM sytv_download_counts GROUP BY game_id`, [day]),
+      pgPool.query<{ game_id: string; reaction: SytvReaction; count: string }>(
+        "SELECT game_id, reaction, COUNT(*) AS count FROM sytv_reactions GROUP BY game_id, reaction")
+    ]);
+    for (const row of downloads.rows) if (games[row.game_id]) {
+      games[row.game_id].today = Number(row.today);
+      games[row.game_id].total = Number(row.total);
+    }
+    for (const row of reactions.rows) if (games[row.game_id] && row.reaction in games[row.game_id].reactions) {
+      games[row.game_id].reactions[row.reaction] = Number(row.count);
+    }
+  } else if (sqliteDb) {
+    const downloads = sqliteDb.prepare(`SELECT game_id, SUM(CASE WHEN download_day = ? THEN count ELSE 0 END) AS today,
+      SUM(count) AS total FROM sytv_download_counts GROUP BY game_id`).all(day) as Array<{ game_id: string; today: number; total: number }>;
+    const reactions = sqliteDb.prepare("SELECT game_id, reaction, COUNT(*) AS count FROM sytv_reactions GROUP BY game_id, reaction")
+      .all() as Array<{ game_id: string; reaction: SytvReaction; count: number }>;
+    for (const row of downloads) if (games[row.game_id]) {
+      games[row.game_id].today = row.today;
+      games[row.game_id].total = row.total;
+    }
+    for (const row of reactions) if (games[row.game_id] && row.reaction in games[row.game_id].reactions) {
+      games[row.game_id].reactions[row.reaction] = row.count;
+    }
+  } else {
+    const store = readLocal();
+    for (const item of store.downloads) if (games[item.gameId]) {
+      games[item.gameId].total += item.count;
+      if (item.day === day) games[item.gameId].today += item.count;
+    }
+    for (const item of store.reactions) if (games[item.gameId] && item.reaction in games[item.gameId].reactions) {
+      games[item.gameId].reactions[item.reaction] += 1;
+    }
+  }
+  return { day, games };
+}
+
+export async function setSytvReaction(gameId: SytvGameId, visitorId: string, reaction: SytvReaction | null) {
+  validateSytvVisitorId(visitorId);
+  const hash = createHash("sha256").update(visitorId).digest("hex");
+  if (pgPool) {
+    if (reaction === null) {
+      await pgPool.query("DELETE FROM sytv_reactions WHERE game_id = $1 AND visitor_hash = $2", [gameId, hash]);
+    } else {
+      await pgPool.query(`INSERT INTO sytv_reactions (game_id, visitor_hash, reaction, created_at) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (game_id, visitor_hash) DO UPDATE SET reaction = EXCLUDED.reaction`,
+        [gameId, hash, reaction, new Date().toISOString()]);
+    }
+  } else if (sqliteDb) {
+    if (reaction === null) {
+      sqliteDb.prepare("DELETE FROM sytv_reactions WHERE game_id = ? AND visitor_hash = ?").run(gameId, hash);
+    } else {
+      sqliteDb.prepare(`INSERT INTO sytv_reactions (game_id, visitor_hash, reaction, created_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT (game_id, visitor_hash) DO UPDATE SET reaction = excluded.reaction`)
+        .run(gameId, hash, reaction, new Date().toISOString());
+    }
+  } else {
+    const store = readLocal();
+    store.reactions = store.reactions.filter((item) => item.gameId !== gameId || item.hash !== hash);
+    if (reaction !== null) store.reactions.push({ gameId, hash, reaction });
+    writeLocal(store);
+  }
+  return (await getSytvGameStats()).games[gameId];
+}
+
+export async function recordSytvVisit(visitorId: string) {
+  validateSytvVisitorId(visitorId);
   const day = seoulDay();
   const hash = createHash("sha256").update(`${day}:${visitorId}`).digest("hex");
   const createdAt = new Date().toISOString();

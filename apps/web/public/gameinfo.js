@@ -166,12 +166,114 @@ function getVisitorId() {
   }
 }
 
+const visitorId = getVisitorId();
+
 fetch("/api/sytv/visit", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ visitorId: getVisitorId() }),
+  body: JSON.stringify({ visitorId }),
   keepalive: true
 }).catch(() => {});
+
+const reactionOptions = [
+  { id: "heart", emoji: "❤️", label: "좋아요" },
+  { id: "clap", emoji: "👏", label: "멋져요" },
+  { id: "fire", emoji: "🔥", label: "재미있어요" }
+];
+const gameEngagement = new Map();
+
+function storedReaction(gameId) {
+  try { return localStorage.getItem(`sytvReaction:${gameId}`); }
+  catch { return null; }
+}
+
+function saveReaction(gameId, reaction) {
+  try {
+    if (reaction) localStorage.setItem(`sytvReaction:${gameId}`, reaction);
+    else localStorage.removeItem(`sytvReaction:${gameId}`);
+  } catch { /* Reactions still work for this page load if storage is unavailable. */ }
+}
+
+function renderGameStats(gameId, stats) {
+  const entry = gameEngagement.get(gameId);
+  if (!entry || !stats) return;
+  entry.downloads.innerHTML = `<strong>오늘 ${Number(stats.today).toLocaleString("ko-KR")}</strong><span>·</span><strong>누적 ${Number(stats.total).toLocaleString("ko-KR")}</strong><small>다운로드 버튼 클릭 기준</small>`;
+  for (const option of reactionOptions) {
+    const button = entry.buttons.get(option.id);
+    const count = Number(stats.reactions?.[option.id] ?? 0);
+    button.querySelector(".reaction-count").textContent = count.toLocaleString("ko-KR");
+    button.setAttribute("aria-label", `${entry.title} ${option.label} ${count}개`);
+    button.setAttribute("aria-pressed", String(storedReaction(gameId) === option.id));
+  }
+}
+
+document.querySelectorAll(".game-card .download-button").forEach((link) => {
+  const gameId = link.getAttribute("href")?.match(/^\/api\/sytv\/download\/([a-z]+)$/)?.[1];
+  const card = link.closest(".game-card");
+  if (!gameId || !card) return;
+  const title = card.querySelector("h3")?.textContent || "게임";
+  const engagement = document.createElement("div");
+  engagement.className = "game-engagement";
+  const downloads = document.createElement("div");
+  downloads.className = "download-stats";
+  downloads.textContent = "다운로드 수 불러오는 중…";
+  const reactions = document.createElement("div");
+  reactions.className = "reaction-buttons";
+  reactions.setAttribute("role", "group");
+  reactions.setAttribute("aria-label", `${title} 반응 남기기`);
+  const error = document.createElement("span");
+  error.className = "reaction-error";
+  error.setAttribute("role", "status");
+  const buttons = new Map();
+  for (const option of reactionOptions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("aria-label", `${title} ${option.label}`);
+    button.setAttribute("aria-pressed", String(storedReaction(gameId) === option.id));
+    button.innerHTML = `<span aria-hidden="true">${option.emoji}</span> <span class="reaction-count">0</span>`;
+    button.addEventListener("click", async () => {
+      const next = storedReaction(gameId) === option.id ? null : option.id;
+      for (const item of buttons.values()) item.disabled = true;
+      error.textContent = "";
+      try {
+        const response = await fetch(`/api/sytv/games/${gameId}/reaction`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visitorId, reaction: next })
+        });
+        if (!response.ok) throw new Error("반응을 저장하지 못했습니다. 다시 눌러 주세요.");
+        const result = await response.json();
+        saveReaction(gameId, result.reaction);
+        renderGameStats(gameId, result.stats);
+      } catch (cause) {
+        error.textContent = cause.message || "반응을 저장하지 못했습니다.";
+      } finally {
+        for (const item of buttons.values()) item.disabled = false;
+      }
+    });
+    reactions.append(button);
+    buttons.set(option.id, button);
+  }
+  engagement.append(downloads, reactions, error);
+  card.querySelector(".card-actions").after(engagement);
+  gameEngagement.set(gameId, { title, downloads, buttons });
+});
+
+async function loadGameStats() {
+  try {
+    const response = await fetch("/api/sytv/games/stats", { cache: "no-store" });
+    if (!response.ok) throw new Error();
+    const { games } = await response.json();
+    for (const [gameId, stats] of Object.entries(games)) renderGameStats(gameId, stats);
+  } catch {
+    for (const entry of gameEngagement.values()) {
+      if (entry.downloads.textContent === "다운로드 수 불러오는 중…") entry.downloads.textContent = "다운로드 수를 불러오지 못했습니다.";
+    }
+  }
+}
+
+loadGameStats();
+window.addEventListener("focus", loadGameStats);
 
 const commentForm = document.querySelector("#comment-form");
 const commentList = document.querySelector("#comment-list");

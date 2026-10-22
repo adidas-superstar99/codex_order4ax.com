@@ -46,7 +46,7 @@ main { padding: 22px 0 72px; }
 .section-heading h2 { margin: 0; font-size: clamp(25px, 2.3vw, 31px); line-height: 1.25; letter-spacing: -.055em; font-weight: 900; }
 .section-heading p { margin: 0 1px 3px; color: var(--muted); font-size: 14px; }
 .game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.game-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 43%) minmax(0, 1fr); grid-template-areas: "media head" "action summary" "install install"; align-content: start; gap: 12px 17px; padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); animation: enter .55s both; transition: border-color .25s, box-shadow .25s; }
+.game-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 43%) minmax(0, 1fr); grid-template-areas: "media head" "action summary" "engage engage" "install install"; align-content: start; gap: 12px 17px; padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); animation: enter .55s both; transition: border-color .25s, box-shadow .25s; }
 .game-card:nth-child(2) { animation-delay: .06s; }
 .game-card:nth-child(3) { animation-delay: .12s; }
 .game-card:hover { border-color: #f3b0a7; box-shadow: 0 8px 24px rgba(53, 38, 34, .07); }
@@ -57,7 +57,7 @@ main { padding: 22px 0 72px; }
 .file-meta { display: flex; gap: 6px; flex-wrap: wrap; margin: 9px 0 11px; }
 .file-meta span { padding: 3px 6px; border-radius: 4px; background: #f4f5f5; color: #747e83; font-size: 10px; font-weight: 700; }
 .video-wrap { grid-area: media; position: relative; overflow: hidden; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; background: #182126; }
-.featured-card { grid-column: 1 / -1; grid-template-columns: minmax(0, 1.15fr) minmax(0, .87fr); grid-template-rows: auto auto auto auto 1fr; grid-template-areas: "media head" "media summary" "media tags" "media action" "media install"; align-items: start; column-gap: 38px; row-gap: 10px; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.featured-card { grid-column: 1 / -1; grid-template-columns: minmax(0, 1.15fr) minmax(0, .87fr); grid-template-rows: auto auto auto auto auto 1fr; grid-template-areas: "media head" "media summary" "media tags" "media action" "media engage" "media install"; align-items: start; column-gap: 38px; row-gap: 10px; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
 .featured-card:hover { border-color: var(--line); box-shadow: none; }
 .featured-card .video-wrap { align-self: start; }
 .featured-card .card-head h3 { font-size: clamp(28px, 2.5vw, 36px); }
@@ -93,6 +93,16 @@ main { padding: 22px 0 72px; }
 .download-button { background: var(--teal); color: #fff; text-decoration: none; transition: background .2s, transform .2s; }
 .download-button:hover { background: var(--teal-dark); transform: translateY(-1px); }
 .download-button svg { width: 17px; height: 17px; flex: none; }
+.game-engagement { grid-area: engage; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px 14px; padding: 9px 11px; border: 1px solid #edf0f1; border-radius: 8px; background: #fafbfb; }
+.download-stats { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; color: #526069; font-size: 12px; }
+.download-stats strong { color: #26343b; font-size: 13px; }
+.download-stats small { color: #879197; font-size: 10px; }
+.reaction-buttons { display: flex; align-items: center; gap: 5px; }
+.reaction-buttons button { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 5px 9px; border: 1px solid #e1e5e7; border-radius: 999px; background: #fff; color: #46535a; font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
+.reaction-buttons button:hover { border-color: #ee988d; transform: translateY(-1px); }
+.reaction-buttons button[aria-pressed="true"] { border-color: #ee988d; background: #fff0ed; color: #bd3a2d; font-weight: 800; }
+.reaction-buttons button:disabled { cursor: wait; opacity: .65; }
+.reaction-error { flex-basis: 100%; color: #b84234; font-size: 11px; }
 .download-unavailable { border: 1px dashed #c1cbce; background: #f7f9f9; color: #738084; }
 .download-note { margin: 6px 1px 0; color: #809096; font-size: 10px; line-height: 1.3; }
 .install-details { grid-area: install; margin: 0; border: 1px solid var(--line); border-radius: 7px; background: #f9fafb; }
@@ -174,7 +184,8 @@ footer { padding: 25px 0 36px; border-top: 1px solid var(--line); color: #7b878d
   .featured-card .game-summary { order: 2; }
   .featured-card .feature-tags { order: 3; }
   .featured-card .card-actions { order: 4; }
-  .featured-card .install-details { order: 5; }
+  .featured-card .game-engagement { order: 5; }
+  .featured-card .install-details { order: 6; }
   .featured-card .video-wrap { align-self: auto; }
 }
 @media (max-width: 620px) {
@@ -196,7 +207,9 @@ footer { padding: 25px 0 36px; border-top: 1px solid var(--line); color: #7b878d
   .game-card:not(.featured-card) .video-wrap { order: 1; }
   .game-card:not(.featured-card) .game-summary { order: 2; }
   .game-card:not(.featured-card) .card-actions { order: 3; }
-  .game-card:not(.featured-card) .install-details { order: 4; }
+  .game-card:not(.featured-card) .game-engagement { order: 4; width: 100%; }
+  .game-card:not(.featured-card) .install-details { order: 5; }
+  .game-engagement { align-items: stretch; flex-direction: column; }
   .more-heading { margin-top: 4px; padding-top: 25px; }
   .more-heading h2 { font-size: 24px; }
   .youtube-card h3 { font-size: 15px; }

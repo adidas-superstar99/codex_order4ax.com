@@ -3,10 +3,15 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import {
   createSytvComment,
+  getSytvGameStats,
   getSytvStats,
+  isSytvGameId,
   listSytvComments,
+  recordSytvDownload,
   recordSytvVisit,
   seoulDay,
+  setSytvReaction,
+  sytvGameFiles,
   updateSytvCommentStatus,
   type SytvComment
 } from "../services/sytvService.js";
@@ -37,6 +42,56 @@ publicSytvRouter.post("/visit", async (req: Request, res: Response) => {
   } catch (error) {
     const invalid = error instanceof Error && error.message === "방문 식별값이 올바르지 않습니다.";
     res.status(invalid ? 400 : 500).json({ message: invalid ? error.message : "방문 기록에 실패했습니다." });
+  }
+});
+
+publicSytvRouter.get("/games/stats", async (_req: Request, res: Response) => {
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await getSytvGameStats());
+  } catch {
+    res.status(500).json({ message: "게임 통계를 불러오지 못했습니다." });
+  }
+});
+
+publicSytvRouter.get("/download/:gameId", async (req: Request, res: Response) => {
+  if (!isSytvGameId(req.params.gameId)) {
+    res.status(404).send("게임을 찾을 수 없습니다.");
+    return;
+  }
+  try {
+    const prefetch = `${req.header("purpose") ?? ""} ${req.header("sec-purpose") ?? ""}`.includes("prefetch");
+    const url = req.method === "HEAD" || prefetch
+      ? `https://drive.google.com/uc?export=download&id=${sytvGameFiles[req.params.gameId]}`
+      : await recordSytvDownload(req.params.gameId);
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(302, url);
+  } catch {
+    res.status(500).send("다운로드 링크를 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+});
+
+publicSytvRouter.post("/games/:gameId/reaction", async (req: Request, res: Response) => {
+  if (!isSameOrigin(req)) {
+    res.status(403).json({ message: "허용되지 않은 요청입니다." });
+    return;
+  }
+  if (!isSytvGameId(req.params.gameId)) {
+    res.status(404).json({ message: "게임을 찾을 수 없습니다." });
+    return;
+  }
+  const reaction = req.body?.reaction;
+  if (reaction !== null && reaction !== "heart" && reaction !== "clap" && reaction !== "fire") {
+    res.status(400).json({ message: "반응이 올바르지 않습니다." });
+    return;
+  }
+  try {
+    const stats = await setSytvReaction(req.params.gameId, String(req.body?.visitorId ?? ""), reaction);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ reaction, stats });
+  } catch (error) {
+    const invalid = error instanceof Error && error.message === "방문 식별값이 올바르지 않습니다.";
+    res.status(invalid ? 400 : 500).json({ message: invalid ? error.message : "반응을 저장하지 못했습니다." });
   }
 });
 
