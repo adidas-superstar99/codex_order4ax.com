@@ -10,7 +10,8 @@ const videoThumbnails = {
   "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-thumbnail.jpg",
   "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-thumbnail.jpg",
   "13Lx_5kxmsadPSzDPqIuvra1K4b9GgvUp": "/gameinfo-assets/anisoccer-thumbnail.jpg",
-  "13-WpJunzCGLE_5DWj6ULpn3xNLRhM5qO": "/gameinfo-assets/monsterisle-thumbnail.jpg"
+  "13-WpJunzCGLE_5DWj6ULpn3xNLRhM5qO": "/gameinfo-assets/monsterisle-thumbnail.jpg",
+  "1MuJk0Cy4cKRrao2m1Os1i5XawtcNYRW8": "/gameinfo-assets/toonheroes-thumbnail.png"
 };
 const siteVideos = {
   "1jTYEKNJHahATnsJPTvvXXf2wAKnnHs3o": "/gameinfo-assets/minekart-promo.mp4",
@@ -24,7 +25,8 @@ const siteVideos = {
   "1TeuK0679FmWNSwbqdfKIKf0QBKhrjI_L": "/gameinfo-assets/doors-promo.mp4",
   "1NCn5Y26XR0V-_W-7k_cVmK3-CvWHyAKE": "/gameinfo-assets/tower-promo.mp4",
   "13Lx_5kxmsadPSzDPqIuvra1K4b9GgvUp": "/gameinfo-assets/anisoccer-promo.mp4",
-  "13-WpJunzCGLE_5DWj6ULpn3xNLRhM5qO": "/gameinfo-assets/monsterisle-promo.mp4"
+  "13-WpJunzCGLE_5DWj6ULpn3xNLRhM5qO": "/gameinfo-assets/monsterisle-promo.mp4",
+  "1MuJk0Cy4cKRrao2m1Os1i5XawtcNYRW8": "/gameinfo-assets/toonheroes-promo.mp4"
 };
 
 // Stills come from the games' own promotional videos, so each description has a visible example.
@@ -88,6 +90,11 @@ const gameScenes = {
     still: "monsterisle",
     captions: ["괴수 섬의 숲을 탐험하며 목표를 찾아요.", "약점을 겨냥해 거대한 보스와 싸워요."],
     tags: ["#협동건슈팅", "#보스전", "#괴수섬", "#탐험"]
+  },
+  toonheroes: {
+    still: "toonheroes",
+    captions: ["숲에서 몰려오는 적을 물리치며 영웅을 구출해요.", "하모니 필살기로 강한 보스에 맞서요."],
+    tags: ["#서바이벌액션", "#4인협동", "#보스전", "#영웅구출"]
   }
 };
 
