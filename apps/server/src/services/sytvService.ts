@@ -24,7 +24,8 @@ export const sytvGameFiles = {
   tower: "1uTgYzDywPRn8TwN7nyrjLZ5Zorxrma22",
   anisoccer: "1cd52Gz9lKMR9krgVO1xgkTHIb5cQ0TBP",
   monsterisle: "1QFm3QByqnoa8ZqQwcdk3TC4PWh-EFl4a",
-  toonheroes: "1oyus_a3m5gOeQA1Beey4zUA7RQPuYu4E"
+  toonheroes: "1oyus_a3m5gOeQA1Beey4zUA7RQPuYu4E",
+  quizquiz: "177a8ZiABpUZn5x6mo4ewSKVIhQbd6kII"
 } as const;
 export type SytvGameId = keyof typeof sytvGameFiles;
 export type SytvReaction = "heart" | "clap" | "fire";
