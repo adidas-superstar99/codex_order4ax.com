@@ -44,6 +44,12 @@ app.use("/api/admin/cloud", requireAdmin, cloudRouter);
 app.use("/api/admin", adminRouter);
 
 if (webDistPath) {
+  app.get("/", (req: Request, res: Response, next) => {
+    if (req.hostname.toLowerCase() !== "game.order4ax.com") {
+      return next();
+    }
+    res.sendFile(join(webDistPath, "gameinfo.html"));
+  });
   app.use(express.static(webDistPath));
   app.get(["/sytv", "/sytv/", "/gameinfo", "/gameinfo/"], (_req: Request, res: Response) => {
     res.sendFile(join(webDistPath, "gameinfo.html"));
