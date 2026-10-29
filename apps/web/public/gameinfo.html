@@ -10,8 +10,8 @@
     />
     <title>시영TV와 함께하는 게임 채널</title>
     <link rel="canonical" href="https://order4ax.com/sytv" />
-    <link rel="stylesheet" href="/gameinfo.css?v=mobile-gallery-20261027" />
-    <script src="/gameinfo.js?v=quizquiz-20261027" defer></script>
+    <link rel="stylesheet" href="/gameinfo.css?v=game-feedback-20261029" />
+    <script src="/gameinfo.js?v=game-feedback-20261029" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#games">게임 목록으로 건너뛰기</a>
@@ -38,7 +38,7 @@
           <a href="#top" aria-current="page">홈</a>
           <a href="#games">게임</a>
           <a href="#channel-videos-title">시영TV 영상</a>
-          <a href="#comments">댓글</a>
+          <a href="#comments">댓글·제보</a>
         </div>
       </nav>
     </header>
@@ -404,20 +404,41 @@
           <div class="section-heading">
             <div>
               <h2 id="comments-title">게임 이야기 나눠요</h2>
-              <p>재미있게 플레이한 게임이나 다음에 보고 싶은 게임을 알려주세요.</p>
+              <p>즐거웠던 점은 응원 댓글로, 플레이 중 생긴 문제는 게임을 골라 오류·버그 제보로 남겨주세요.</p>
             </div>
             <span class="comment-count" id="comment-count"></span>
           </div>
-          <form class="comment-form" id="comment-form">
-            <label for="comment-nickname">닉네임</label>
-            <input id="comment-nickname" name="nickname" maxlength="20" autocomplete="nickname" required placeholder="닉네임" />
-            <label for="comment-body">댓글</label>
-            <textarea id="comment-body" name="body" minlength="2" maxlength="500" rows="3" required placeholder="게임에 대한 생각을 남겨주세요."></textarea>
-            <input class="comment-honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
-            <div class="comment-form-bottom"><span>닉네임과 댓글이 공개됩니다.</span><button type="submit">댓글 남기기</button></div>
-            <p class="comment-message" id="comment-message" role="status" aria-live="polite"></p>
-          </form>
-          <div class="comment-list" id="comment-list" aria-live="polite"><p class="comment-empty">댓글을 불러오는 중입니다…</p></div>
+          <div class="comment-tabs" role="tablist" aria-label="댓글 종류">
+            <button type="button" id="support-tab" role="tab" aria-controls="support-panel" aria-selected="true">💬 응원 댓글</button>
+            <button type="button" id="bug-tab" role="tab" aria-controls="bug-panel" aria-selected="false" tabindex="-1">🐞 오류·버그 제보</button>
+          </div>
+          <div id="support-panel" role="tabpanel" aria-labelledby="support-tab">
+            <form class="comment-form" id="comment-form">
+              <label for="comment-nickname">닉네임</label>
+              <input id="comment-nickname" name="nickname" maxlength="20" autocomplete="nickname" required placeholder="닉네임" />
+              <label for="comment-body">응원 댓글</label>
+              <textarea id="comment-body" name="body" minlength="2" maxlength="500" rows="3" required placeholder="재미있게 플레이한 게임과 응원의 말을 남겨주세요."></textarea>
+              <input class="comment-honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+              <div class="comment-form-bottom"><span>닉네임과 댓글이 공개됩니다.</span><button type="submit">응원 댓글 남기기</button></div>
+              <p class="comment-message" id="comment-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="comment-list" id="comment-list" aria-live="polite"><p class="comment-empty">응원 댓글을 불러오는 중입니다…</p></div>
+          </div>
+          <div id="bug-panel" role="tabpanel" aria-labelledby="bug-tab" hidden>
+            <p class="bug-intro">게임에서 오류를 발견하셨나요? 어떤 게임인지 고르고, 문제가 생긴 상황을 알려주세요. 개발자가 확인하는 데 큰 도움이 됩니다.</p>
+            <form class="comment-form bug-form" id="bug-form">
+              <label for="bug-game">오류가 난 게임</label>
+              <select id="bug-game" name="gameId" required><option value="">게임을 선택해 주세요</option></select>
+              <label for="bug-nickname">닉네임</label>
+              <input id="bug-nickname" name="nickname" maxlength="20" autocomplete="nickname" required placeholder="닉네임" />
+              <label for="bug-body">오류·버그 내용</label>
+              <textarea id="bug-body" name="body" minlength="2" maxlength="500" rows="4" required placeholder="어떤 상황에서 어떤 문제가 생겼는지 적어주세요. 예: 게임 시작을 누르면 화면이 멈춰요."></textarea>
+              <input class="comment-honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+              <div class="comment-form-bottom"><span>게임 이름, 닉네임과 제보 내용이 공개됩니다. 개인정보는 적지 마세요.</span><button type="submit">오류 제보 남기기</button></div>
+              <p class="comment-message" id="bug-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="comment-list" id="bug-list" aria-live="polite"><p class="comment-empty">오류 제보를 불러오는 중입니다…</p></div>
+          </div>
         </section>
 
       </div>

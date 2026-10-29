@@ -134,11 +134,16 @@ export async function migrate() {
         id TEXT PRIMARY KEY,
         nickname TEXT NOT NULL,
         body TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'support',
+        game_id TEXT,
         status TEXT NOT NULL DEFAULT 'published',
         created_at TEXT NOT NULL
       );
     `);
+    await pgPool.query(`ALTER TABLE sytv_comments ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'support';`);
+    await pgPool.query(`ALTER TABLE sytv_comments ADD COLUMN IF NOT EXISTS game_id TEXT;`);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_sytv_comments_created_at ON sytv_comments(created_at DESC);`);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_sytv_comments_category_game ON sytv_comments(category, game_id, created_at DESC);`);
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS sytv_download_counts (
         game_id TEXT NOT NULL,
@@ -240,6 +245,8 @@ export async function migrate() {
       id TEXT PRIMARY KEY,
       nickname TEXT NOT NULL,
       body TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'support',
+      game_id TEXT,
       status TEXT NOT NULL DEFAULT 'published',
       created_at TEXT NOT NULL
     );
@@ -261,6 +268,15 @@ export async function migrate() {
       PRIMARY KEY (game_id, visitor_hash)
     );
   `);
+
+  const commentColumns = sqliteDb.prepare("PRAGMA table_info(sytv_comments)").all() as Array<{ name: string }>;
+  if (!commentColumns.some((column) => column.name === "category")) {
+    sqliteDb.exec("ALTER TABLE sytv_comments ADD COLUMN category TEXT NOT NULL DEFAULT 'support';");
+  }
+  if (!commentColumns.some((column) => column.name === "game_id")) {
+    sqliteDb.exec("ALTER TABLE sytv_comments ADD COLUMN game_id TEXT;");
+  }
+  sqliteDb.exec("CREATE INDEX IF NOT EXISTS idx_sytv_comments_category_game ON sytv_comments(category, game_id, created_at DESC);");
 
   const orderColumns = sqliteDb.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
   if (!orderColumns.some((column) => column.name === "batch_id")) {

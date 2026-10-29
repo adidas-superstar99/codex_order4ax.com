@@ -400,29 +400,92 @@ async function loadGameStats() {
 loadGameStats();
 window.addEventListener("focus", loadGameStats);
 
-const commentForm = document.querySelector("#comment-form");
-const commentList = document.querySelector("#comment-list");
+const commentsSection = document.querySelector("#comments");
 const commentCount = document.querySelector("#comment-count");
-const commentMessage = document.querySelector("#comment-message");
+const supportTab = document.querySelector("#support-tab");
+const bugTab = document.querySelector("#bug-tab");
+const supportPanel = document.querySelector("#support-panel");
+const bugPanel = document.querySelector("#bug-panel");
+const bugGameSelect = document.querySelector("#bug-game");
+const gameNames = new Map();
+const commentTotals = { support: 0, bug: 0 };
+let activeCommentCategory = "support";
+let commentsLoadSequence = 0;
 
-function renderComments(comments) {
-  commentList.replaceChildren();
-  commentCount.textContent = comments.length === 100 ? "최근 댓글 100개" : `댓글 ${comments.length}개`;
+document.querySelectorAll(".game-card").forEach((card) => {
+  const gameId = card.querySelector(".download-button")?.getAttribute("href")?.split("/").pop();
+  const name = card.querySelector("h3")?.textContent?.trim();
+  if (!gameId || !name) return;
+  gameNames.set(gameId, name);
+  const option = document.createElement("option");
+  option.value = gameId;
+  option.textContent = name;
+  bugGameSelect.append(option);
+
+  const reportButton = document.createElement("button");
+  reportButton.type = "button";
+  reportButton.className = "bug-report-link";
+  reportButton.textContent = "🐞 이 게임 오류·버그 제보";
+  reportButton.setAttribute("aria-label", `${name} 오류·버그 제보하기`);
+  reportButton.addEventListener("click", () => {
+    bugGameSelect.value = gameId;
+    activateCommentTab("bug");
+    loadComments();
+    commentsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    bugGameSelect.focus({ preventScroll: true });
+  });
+  card.querySelector(".card-actions")?.append(reportButton);
+});
+
+function activateCommentTab(category) {
+  activeCommentCategory = category;
+  const isBug = category === "bug";
+  supportTab.setAttribute("aria-selected", String(!isBug));
+  bugTab.setAttribute("aria-selected", String(isBug));
+  supportTab.tabIndex = isBug ? -1 : 0;
+  bugTab.tabIndex = isBug ? 0 : -1;
+  supportPanel.hidden = isBug;
+  bugPanel.hidden = !isBug;
+  const total = commentTotals[category];
+  const gameLabel = isBug && bugGameSelect.value ? ` · ${gameNames.get(bugGameSelect.value)}` : "";
+  commentCount.textContent = (total === 100 ? `최근 ${isBug ? "오류 제보" : "응원 댓글"} 100개` : `${isBug ? "오류 제보" : "응원 댓글"} ${total}개`) + gameLabel;
+}
+
+for (const [tab, category] of [[supportTab, "support"], [bugTab, "bug"]]) {
+  tab.addEventListener("click", () => activateCommentTab(category));
+  tab.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const next = category === "support" ? "bug" : "support";
+    activateCommentTab(next);
+    (next === "bug" ? bugTab : supportTab).focus();
+  });
+}
+
+const dateFormat = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+});
+
+function renderComments(comments, list, emptyText) {
+  list.replaceChildren();
   if (!comments.length) {
     const empty = document.createElement("p");
     empty.className = "comment-empty";
-    empty.textContent = "첫 댓글을 남겨주세요!";
-    commentList.append(empty);
+    empty.textContent = emptyText;
+    list.append(empty);
     return;
   }
-  const dateFormat = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
-  });
   for (const comment of comments) {
     const article = document.createElement("article");
     article.className = "comment-item";
     const head = document.createElement("div");
     head.className = "comment-item-head";
+    if (comment.category === "bug" && comment.gameId) {
+      const game = document.createElement("span");
+      game.className = "comment-game";
+      game.textContent = gameNames.get(comment.gameId) || comment.gameId;
+      head.append(game);
+    }
     const nickname = document.createElement("strong");
     nickname.textContent = comment.nickname;
     const date = document.createElement("time");
@@ -432,42 +495,64 @@ function renderComments(comments) {
     body.textContent = comment.body;
     head.append(nickname, date);
     article.append(head, body);
-    commentList.append(article);
+    list.append(article);
   }
 }
 
 async function loadComments() {
+  const sequence = ++commentsLoadSequence;
+  const selectedGame = bugGameSelect.value;
   try {
-    const response = await fetch("/api/sytv/comments", { cache: "no-store" });
-    if (!response.ok) throw new Error();
-    renderComments(await response.json());
+    const responses = await Promise.all([
+      fetch("/api/sytv/comments?category=support", { cache: "no-store" }),
+      fetch(`/api/sytv/comments?category=bug${selectedGame ? `&gameId=${encodeURIComponent(selectedGame)}` : ""}`, { cache: "no-store" })
+    ]);
+    if (responses.some((response) => !response.ok)) throw new Error();
+    const [supportComments, bugComments] = await Promise.all(responses.map((response) => response.json()));
+    if (sequence !== commentsLoadSequence) return;
+    commentTotals.support = supportComments.length;
+    commentTotals.bug = bugComments.length;
+    renderComments(supportComments, document.querySelector("#comment-list"), "첫 응원 댓글을 남겨주세요!");
+    renderComments(bugComments, document.querySelector("#bug-list"), selectedGame ? "이 게임의 오류 제보는 아직 없습니다." : "아직 오류 제보가 없습니다.");
+    activateCommentTab(activeCommentCategory);
   } catch {
-    commentList.textContent = "댓글을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.";
+    if (sequence !== commentsLoadSequence) return;
+    document.querySelector("#comment-list").textContent = "댓글을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.";
+    document.querySelector("#bug-list").textContent = "오류 제보를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.";
   }
 }
 
-commentForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const submit = commentForm.querySelector('button[type="submit"]');
-  submit.disabled = true;
-  commentMessage.textContent = "";
-  const data = new FormData(commentForm);
-  try {
-    const response = await fetch("/api/sytv/comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: data.get("nickname"), body: data.get("body"), website: data.get("website") })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "댓글을 등록하지 못했습니다.");
-    commentForm.querySelector("#comment-body").value = "";
-    commentMessage.textContent = result.pending ? "댓글이 등록되었습니다. 운영자 확인 후 공개됩니다." : "댓글이 등록되었습니다.";
-    await loadComments();
-  } catch (error) {
-    commentMessage.textContent = error.message || "댓글을 등록하지 못했습니다.";
-  } finally {
-    submit.disabled = false;
-  }
-});
+bugGameSelect.addEventListener("change", loadComments);
+
+for (const [form, category, messageSelector, bodySelector] of [
+  [document.querySelector("#comment-form"), "support", "#comment-message", "#comment-body"],
+  [document.querySelector("#bug-form"), "bug", "#bug-message", "#bug-body"]
+]) {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    const message = form.querySelector(messageSelector);
+    submit.disabled = true;
+    message.textContent = "";
+    const data = new FormData(form);
+    try {
+      const response = await fetch("/api/sytv/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, gameId: category === "bug" ? data.get("gameId") : null,
+          nickname: data.get("nickname"), body: data.get("body"), website: data.get("website") })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "댓글을 등록하지 못했습니다.");
+      form.querySelector(bodySelector).value = "";
+      message.textContent = result.pending ? "등록되었습니다. 운영자 확인 후 공개됩니다." : "등록되었습니다. 알려주셔서 감사합니다!";
+      await loadComments();
+    } catch (error) {
+      message.textContent = error.message || "댓글을 등록하지 못했습니다.";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
 
 loadComments();

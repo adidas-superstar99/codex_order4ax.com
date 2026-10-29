@@ -93,11 +93,13 @@ main { padding: 22px 0 72px; }
 .video-poster img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .poster-play { position: absolute; top: 50%; left: 50%; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: rgba(12, 24, 29, .8); color: white; font-size: 25px; transform: translate(-50%, -50%); transition: background .2s, scale .2s; }
 .video-poster:hover .poster-play { background: var(--teal); scale: 1.08; }
-.card-actions { grid-area: action; align-self: stretch; width: 100%; }
+.card-actions { grid-area: action; align-self: stretch; display: grid; gap: 8px; width: 100%; }
 .download-button, .download-unavailable { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 48px; border-radius: 7px; font-size: 15px; font-weight: 800; text-align: center; }
 .download-button { background: var(--teal); color: #fff; text-decoration: none; transition: background .2s, transform .2s; }
 .download-button:hover { background: var(--teal-dark); transform: translateY(-1px); }
 .download-button svg { width: 17px; height: 17px; flex: none; }
+.bug-report-link { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid #f2c6bd; border-radius: 7px; background: #fff4f1; color: #a43d2e; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.bug-report-link:hover, .bug-report-link:focus-visible { background: #ffe8e2; border-color: #dc9f91; }
 .game-engagement { grid-area: engage; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px 14px; padding: 9px 11px; border: 1px solid #edf0f1; border-radius: 8px; background: #fafbfb; }
 .download-stats { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; color: #526069; font-size: 12px; }
 .download-stats strong { color: #26343b; font-size: 13px; }
@@ -138,11 +140,17 @@ main { padding: 22px 0 72px; }
 .comments-section .section-heading { align-items: end; }
 .comments-section .section-heading p { margin-top: 5px; }
 .comment-count { flex: none; color: var(--muted); font-size: 13px; }
+.comment-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 22px 0 16px; }
+.comment-tabs button { min-height: 48px; padding: 10px 15px; border: 1px solid var(--line); border-radius: 9px; background: #f5f7f8; color: #53616a; font: inherit; font-size: 15px; font-weight: 850; cursor: pointer; }
+.comment-tabs button[aria-selected="true"] { border-color: #d84232; background: #fff0ed; color: #ae3a2b; box-shadow: inset 0 -3px #d84232; }
+.comment-tabs button:focus-visible { outline: 2px solid #d84232; outline-offset: 2px; }
+.bug-intro { margin: 0 0 14px; padding: 12px 15px; border-left: 4px solid #d84232; border-radius: 7px; background: #fff6f3; color: #704e48; font-size: 14px; line-height: 1.55; }
 .comment-form { position: relative; display: grid; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: #f9fafb; }
 .comment-form label { font-size: 13px; font-weight: 800; }
-.comment-form input:not(.comment-honeypot), .comment-form textarea { width: 100%; padding: 12px 13px; border: 1px solid #d9dfe3; border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; }
+.comment-form input:not(.comment-honeypot), .comment-form textarea, .comment-form select { width: 100%; padding: 12px 13px; border: 1px solid #d9dfe3; border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; }
 .comment-form textarea { min-height: 88px; resize: vertical; }
-.comment-form input:not(.comment-honeypot):focus, .comment-form textarea:focus { border-color: var(--teal); outline: 2px solid #ffe2dd; }
+.comment-form input:not(.comment-honeypot):focus, .comment-form textarea:focus, .comment-form select:focus { border-color: var(--teal); outline: 2px solid #ffe2dd; }
+.bug-form { border-color: #f2d8d2; background: #fffaf9; }
 .comment-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .comment-form-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 3px; }
 .comment-form-bottom span { color: var(--muted); font-size: 12px; }
@@ -153,9 +161,10 @@ main { padding: 22px 0 72px; }
 .comment-list { margin-top: 16px; }
 .comment-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 14px; text-align: center; }
 .comment-item { padding: 17px 4px; border-bottom: 1px solid var(--line); }
-.comment-item-head { display: flex; align-items: baseline; gap: 10px; }
+.comment-item-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px 10px; }
 .comment-item-head strong { font-size: 14px; }
 .comment-item-head time { color: #89939a; font-size: 12px; }
+.comment-game { padding: 4px 8px; border-radius: 5px; background: #fff0ed; color: #aa3d30; font-size: 12px; font-weight: 800; }
 .comment-item p { margin: 8px 0 0; color: #3e4a52; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 footer { padding: 25px 0 36px; border-top: 1px solid var(--line); color: #7b878d; font-size: 12px; }
 .footer-row { display: flex; justify-content: space-between; gap: 12px; }
@@ -204,7 +213,7 @@ footer { padding: 25px 0 36px; border-top: 1px solid var(--line); color: #7b878d
   .masthead-copy h1 { font-size: clamp(23px, 6vw, 30px); }
   .masthead-copy p { margin-top: 7px; font-size: 12px; }
   .channel-tabs .container { gap: 0; }
-  .channel-tabs a { min-width: 0; padding: 12px 13px; font-size: 13px; }
+  .channel-tabs a { min-width: 0; padding: 12px 8px; font-size: 12px; }
   .youtube-grid { gap: 14px; }
   .scene-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .scene-list figcaption { min-height: 0; padding: 7px 8px; font-size: 11px; }
@@ -214,6 +223,7 @@ footer { padding: 25px 0 36px; border-top: 1px solid var(--line); color: #7b878d
   .youtube-card h3 { font-size: 15px; }
   .footer-row { flex-direction: column; }
   .comment-form { padding: 15px; }
+  .comment-tabs button { padding: 9px 7px; font-size: 13px; }
   .comment-form-bottom { align-items: stretch; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {

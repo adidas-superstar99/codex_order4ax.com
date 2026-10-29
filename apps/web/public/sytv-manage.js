@@ -4,6 +4,12 @@ const message = document.querySelector("#admin-message");
 const dashboard = document.querySelector("#dashboard");
 const dayInput = document.querySelector("#stats-day");
 const commentsContainer = document.querySelector("#admin-comments");
+const gameNames = {
+  minekart: "마인크래프트 카트", familycraft: "패밀리크래프트", animalhospital: "동물병원",
+  marioslug: "마리오슬러그", prophunt: "변신숨바꼭질", koopaworld: "쿠파월드", rival: "라이벌",
+  dungeon: "시영 던전", doors: "도어즈", tower: "타워오브헬", anisoccer: "애니사커",
+  monsterisle: "몬스터아일", toonheroes: "툰히어로즈", quizquiz: "퀴즈퀴즈"
+};
 let password = "";
 
 dayInput.value = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -37,13 +43,16 @@ function renderComments(comments) {
     head.className = "admin-comment-head";
     const name = document.createElement("strong");
     name.textContent = comment.nickname;
+    const kind = document.createElement("span");
+    kind.className = "comment-kind";
+    kind.textContent = comment.category === "bug" ? `오류 제보 · ${gameNames[comment.gameId] || comment.gameId || "게임 미지정"}` : "응원 댓글";
     const time = document.createElement("time");
     time.dateTime = comment.createdAt;
     time.textContent = dateFormat.format(new Date(comment.createdAt));
     const status = document.createElement("span");
     status.className = "comment-status";
     status.textContent = labels[comment.status] || comment.status;
-    head.append(name, time, status);
+    head.append(kind, name, time, status);
     const body = document.createElement("p");
     body.textContent = comment.body;
     const actions = document.createElement("div");

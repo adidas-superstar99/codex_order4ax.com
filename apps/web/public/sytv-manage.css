@@ -28,6 +28,7 @@ h2 { margin: 0 0 16px; font-size: 22px; letter-spacing: -.04em; }
 .admin-comment { padding: 17px 0; border-top: 1px solid #e5e8eb; }
 .admin-comment-head { display: flex; gap: 9px; flex-wrap: wrap; align-items: baseline; }
 .admin-comment-head time { color: #8a949a; font-size: 12px; }
+.comment-kind { padding: 4px 8px; border-radius: 5px; background: #fff0ed; color: #a43d2e; font-size: 12px; font-weight: 800; }
 .comment-status { padding: 3px 7px; border-radius: 5px; background: #f3f4f5; color: #657079; font-size: 11px; }
 .admin-comment p { margin: 9px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .admin-comment-actions { display: flex; gap: 8px; }

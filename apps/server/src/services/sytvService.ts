@@ -7,6 +7,8 @@ export type SytvComment = {
   id: string;
   nickname: string;
   body: string;
+  category: "support" | "bug";
+  gameId: SytvGameId | null;
   status: "published" | "pending" | "hidden";
   createdAt: string;
 };
@@ -187,49 +189,62 @@ function mapComment(row: Record<string, unknown>): SytvComment {
     id: String(row.id),
     nickname: String(row.nickname),
     body: String(row.body),
+    category: row.category === "bug" ? "bug" : "support",
+    gameId: typeof row.game_id === "string" && isSytvGameId(row.game_id) ? row.game_id : null,
     status: String(row.status) as SytvComment["status"],
     createdAt: String(row.created_at)
   };
 }
 
-export async function listSytvComments(includeAll = false): Promise<SytvComment[]> {
+export async function listSytvComments(includeAll = false, category?: SytvComment["category"], gameId?: SytvGameId): Promise<SytvComment[]> {
+  const conditions = includeAll ? [] : ["status = 'published'"];
+  const values: string[] = [];
+  if (category) { values.push(category); conditions.push(`category = $${values.length}`); }
+  if (gameId) { values.push(gameId); conditions.push(`game_id = $${values.length}`); }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   if (pgPool) {
     const result = await pgPool.query(
-      `SELECT id, nickname, body, status, created_at FROM sytv_comments ${includeAll ? "" : "WHERE status = 'published'"} ORDER BY created_at DESC LIMIT 100`
+      `SELECT id, nickname, body, category, game_id, status, created_at FROM sytv_comments ${where} ORDER BY created_at DESC LIMIT 100`, values
     );
     return result.rows.map(mapComment);
   }
   if (sqliteDb) {
+    const sqliteWhere = where.replace(/\$\d+/g, "?");
     const rows = sqliteDb.prepare(
-      `SELECT id, nickname, body, status, created_at FROM sytv_comments ${includeAll ? "" : "WHERE status = 'published'"} ORDER BY created_at DESC LIMIT 100`
-    ).all() as Array<Record<string, unknown>>;
+      `SELECT id, nickname, body, category, game_id, status, created_at FROM sytv_comments ${sqliteWhere} ORDER BY created_at DESC LIMIT 100`
+    ).all(...values) as Array<Record<string, unknown>>;
     return rows.map(mapComment);
   }
   return readLocal().comments
-    .filter((comment) => includeAll || comment.status === "published")
+    .map((comment) => ({ ...comment, category: comment.category === "bug" ? "bug" as const : "support" as const, gameId: comment.gameId ?? null }))
+    .filter((comment) => (includeAll || comment.status === "published") && (!category || comment.category === category) && (!gameId || comment.gameId === gameId))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 100);
 }
 
-export async function createSytvComment(nicknameInput: string, bodyInput: string): Promise<SytvComment> {
+export async function createSytvComment(nicknameInput: string, bodyInput: string, categoryInput = "support", gameIdInput?: string): Promise<SytvComment> {
   const nickname = nicknameInput.trim().replace(/[\u0000-\u001f\u007f]/g, "");
   const body = bodyInput.trim().replace(/\r\n?/g, "\n");
   if (nickname.length < 1 || nickname.length > 20 || body.length < 2 || body.length > 500 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(body)) {
     throw new Error("닉네임은 1~20자, 댓글은 2~500자로 입력해 주세요.");
   }
+  if (categoryInput !== "support" && categoryInput !== "bug") throw new Error("댓글 종류를 선택해 주세요.");
+  if (categoryInput === "bug" && (!gameIdInput || !isSytvGameId(gameIdInput))) throw new Error("제보할 게임을 선택해 주세요.");
   const comment: SytvComment = {
     id: randomUUID(),
     nickname,
     body,
+    category: categoryInput,
+    gameId: categoryInput === "bug" ? gameIdInput as SytvGameId : null,
     status: /https?:\/\/|www\./i.test(body) ? "pending" : "published",
     createdAt: new Date().toISOString()
   };
   if (pgPool) {
-    await pgPool.query("INSERT INTO sytv_comments (id, nickname, body, status, created_at) VALUES ($1, $2, $3, $4, $5)",
-      [comment.id, comment.nickname, comment.body, comment.status, comment.createdAt]);
+    await pgPool.query("INSERT INTO sytv_comments (id, nickname, body, category, game_id, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [comment.id, comment.nickname, comment.body, comment.category, comment.gameId, comment.status, comment.createdAt]);
   } else if (sqliteDb) {
-    sqliteDb.prepare("INSERT INTO sytv_comments (id, nickname, body, status, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(comment.id, comment.nickname, comment.body, comment.status, comment.createdAt);
+    sqliteDb.prepare("INSERT INTO sytv_comments (id, nickname, body, category, game_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(comment.id, comment.nickname, comment.body, comment.category, comment.gameId, comment.status, comment.createdAt);
   } else {
     const store = readLocal();
     store.comments.push(comment);

@@ -95,9 +95,16 @@ publicSytvRouter.post("/games/:gameId/reaction", async (req: Request, res: Respo
   }
 });
 
-publicSytvRouter.get("/comments", async (_req: Request, res: Response) => {
+publicSytvRouter.get("/comments", async (req: Request, res: Response) => {
+  const category = req.query.category;
+  const gameId = req.query.gameId;
+  if ((category !== undefined && category !== "support" && category !== "bug") ||
+      (gameId !== undefined && (typeof gameId !== "string" || !isSytvGameId(gameId)))) {
+    res.status(400).json({ message: "댓글 분류 또는 게임이 올바르지 않습니다." });
+    return;
+  }
   try {
-    const comments = await listSytvComments();
+    const comments = await listSytvComments(false, category, gameId);
     res.setHeader("Cache-Control", "no-store");
     res.json(comments);
   } catch {
@@ -125,13 +132,13 @@ publicSytvRouter.post("/comments", async (req: Request, res: Response) => {
     if (typeof req.body?.nickname !== "string" || typeof req.body?.body !== "string") {
       throw new Error("닉네임과 댓글을 입력해 주세요.");
     }
-    const comment = await createSytvComment(req.body.nickname, req.body.body);
+    const comment = await createSytvComment(req.body.nickname, req.body.body, req.body.category ?? "support", req.body.gameId);
     recent.push(now);
     recentComments.set(ipHash, recent);
     res.status(201).json({ comment, pending: comment.status === "pending" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "댓글을 등록하지 못했습니다.";
-    res.status(message.includes("입력") ? 400 : 500).json({ message });
+    res.status(/입력|선택/.test(message) ? 400 : 500).json({ message });
   }
 });
 
