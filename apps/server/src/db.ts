@@ -45,6 +45,11 @@ export function isLocalFallback() {
 
 export async function migrate() {
   if (pgPool) {
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS ai_dashboard_snapshot (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      payload JSONB NOT NULL,
+      received_at TIMESTAMPTZ NOT NULL
+    );`);
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS order_batches (
         id TEXT PRIMARY KEY,
