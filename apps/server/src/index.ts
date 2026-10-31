@@ -13,6 +13,7 @@ import { menusRouter } from "./routes/menus.js";
 import { adminOrderBatchesRouter, publicOrderBatchesRouter } from "./routes/orderBatches.js";
 import { ordersRouter, publicOrdersRouter } from "./routes/orders.js";
 import { publicSytvRouter } from "./routes/sytv.js";
+import { aiDashboardRouter, requireAiViewer } from "./routes/aiDashboard.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const candidateWebDistPaths = [
@@ -38,12 +39,16 @@ app.use("/api/cloud", publicCloudRouter);
 app.use("/api/order-batches", publicOrderBatchesRouter);
 app.use("/api/orders", publicOrdersRouter);
 app.use("/api/sytv", publicSytvRouter);
+app.use("/api/ai", aiDashboardRouter);
 app.use("/api/orders", requireAdmin, ordersRouter);
 app.use("/api/admin/order-batches", requireAdmin, adminOrderBatchesRouter);
 app.use("/api/admin/cloud", requireAdmin, cloudRouter);
 app.use("/api/admin", adminRouter);
 
 if (webDistPath) {
+  app.get(["/ai", "/ai/", "/ai.html"], requireAiViewer, (_req: Request, res: Response) => {
+    res.sendFile(join(webDistPath, "ai.html"));
+  });
   app.get("/", (req: Request, res: Response, next) => {
     if (req.hostname.toLowerCase() !== "game.order4ax.com") {
       return next();
@@ -59,6 +64,12 @@ if (webDistPath) {
   });
   app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
     res.sendFile(join(webDistPath, "index.html"));
+  });
+}
+
+if (!webDistPath) {
+  app.get(["/ai", "/ai/", "/ai.html"], requireAiViewer, (_req: Request, res: Response) => {
+    res.sendFile(join(process.cwd(), "apps/web/public/ai.html"));
   });
 }
 
