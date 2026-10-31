@@ -27,7 +27,11 @@ const app = express();
 
 app.set("trust proxy", true);
 app.use(cors());
-app.use(express.json({ limit: "6mb" }));
+app.use(express.json({ limit: "6mb", verify: (req, _res, body) => {
+  if (req.url?.startsWith("/api/ai/ingest")) {
+    (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
+  }
+} }));
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ ok: true, service: "coffee-order-api" });

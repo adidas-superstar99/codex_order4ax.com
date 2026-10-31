@@ -1,8 +1,10 @@
-import { timingSafeEqual } from "node:crypto";
+import { createVerify, scryptSync, timingSafeEqual } from "node:crypto";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { readAiSnapshot, saveAiSnapshot } from "../aiStore.js";
+import { ingestPublicKey, viewerPasswordHash } from "../aiDashboardKeys.js";
 
 export const aiDashboardRouter = Router();
+type RawRequest = Request & { rawBody?: Buffer };
 
 function sameSecret(actual: string, expected: string): boolean {
   const a = Buffer.from(actual);
@@ -10,9 +12,19 @@ function sameSecret(actual: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function verifyPassword(actual: string, encoded: string): boolean {
+  const [saltHex, digestHex] = encoded.split(":");
+  if (!saltHex || !digestHex || !/^[0-9a-f]+$/i.test(saltHex) || !/^[0-9a-f]+$/i.test(digestHex)) return false;
+  const expected = Buffer.from(digestHex, "hex");
+  if (expected.length !== 32) return false;
+  const candidate = scryptSync(actual, Buffer.from(saltHex, "hex"), 32);
+  return timingSafeEqual(candidate, expected);
+}
+
 export function requireAiViewer(req: Request, res: Response, next: NextFunction): void {
   const password = process.env.AI_DASHBOARD_PASSWORD || "";
-  if (!password) {
+  const passwordHash = process.env.AI_DASHBOARD_PASSWORD_HASH || viewerPasswordHash;
+  if (!password && !passwordHash) {
     res.status(503).json({ error: "AI_DASHBOARD_NOT_CONFIGURED" });
     return;
   }
@@ -22,7 +34,7 @@ export function requireAiViewer(req: Request, res: Response, next: NextFunction)
     try { supplied = Buffer.from(header.slice(6), "base64").toString("utf8").split(":").slice(1).join(":"); }
     catch { supplied = ""; }
   }
-  if (!supplied || !sameSecret(supplied, password)) {
+  if (!supplied || !(password ? sameSecret(supplied, password) : verifyPassword(supplied, passwordHash))) {
     res.set("WWW-Authenticate", 'Basic realm="AI Dashboard"');
     res.status(401).json({ error: "UNAUTHORIZED" });
     return;
@@ -32,14 +44,24 @@ export function requireAiViewer(req: Request, res: Response, next: NextFunction)
 }
 
 function requireAiIngest(req: Request, res: Response, next: NextFunction): void {
-  const token = process.env.AI_DASHBOARD_INGEST_TOKEN || "";
-  if (!token) {
+  const key = process.env.AI_DASHBOARD_PUBLIC_KEY_B64
+    ? Buffer.from(process.env.AI_DASHBOARD_PUBLIC_KEY_B64, "base64").toString("utf8") : ingestPublicKey;
+  if (!key) {
     res.status(503).json({ error: "AI_INGEST_NOT_CONFIGURED" });
     return;
   }
-  const header = req.get("authorization") || "";
-  const supplied = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!supplied || !sameSecret(supplied, token)) {
+  const signature = req.get("x-ai-signature") || "";
+  const rawBody = (req as RawRequest).rawBody;
+  const sentAt = isRecord(req.body) && typeof req.body.sent_at === "string" ? Date.parse(req.body.sent_at) : NaN;
+  let verified = false;
+  if (rawBody && signature && Number.isFinite(sentAt) && Math.abs(Date.now() - sentAt) <= 300000) {
+    try {
+      const verifier = createVerify("RSA-SHA256");
+      verifier.update(rawBody);
+      verified = verifier.verify(key, Buffer.from(signature, "base64"));
+    } catch { verified = false; }
+  }
+  if (!verified) {
     res.status(401).json({ error: "UNAUTHORIZED" });
     return;
   }

@@ -21,7 +21,3 @@ services:
         sync: false
       - key: HERMES_WEBHOOK_TOKEN
         sync: false
-      - key: AI_DASHBOARD_PASSWORD
-        sync: false
-      - key: AI_DASHBOARD_INGEST_TOKEN
-        sync: false
